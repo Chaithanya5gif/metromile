@@ -1,1 +1,55 @@
-
+src/
+│
+├── assets/            # images, icons, fonts
+│
+├── components/        # reusable UI components
+│   ├── common/
+│   │   ├── Button.jsx
+│   │   ├── Loader.jsx
+│   │   └── Input.jsx
+│   │
+│   ├── ride/
+│   │   ├── RideCard.jsx
+│   │   └── RideList.jsx
+│   │
+│   └── driver/
+│       └── DriverCard.jsx
+│
+├── screens/           # pages/screens
+│   ├── auth/
+│   │   ├── LoginScreen.jsx
+│   │   └── RegisterScreen.jsx
+│   │
+│   ├── rider/
+│   │   ├── BookRideScreen.jsx
+│   │   ├── MyRidesScreen.jsx
+│   │   └── RideDetailsScreen.jsx
+│   │
+│   ├── driver/
+│   │   ├── DriverDashboard.jsx
+│   │   ├── AvailableRides.jsx
+│   │   └── ActiveRide.jsx
+│   │
+│   └── home/
+│       └── HomeScreen.jsx
+│
+├── navigation/        # routing
+│   └── AppRouter.jsx
+│
+├── services/          # API calls (VERY IMPORTANT)
+│   ├── api.js
+│   ├── authService.js
+│   ├── rideService.js
+│   ├── driverService.js
+│   └── paymentService.js
+│
+├── hooks/             # custom hooks
+│   └── useAuth.js
+│
+├── utils/             # helpers
+│   ├── constants.js
+│   └── helpers.js
+│
+├── App.jsx            # main component
+├── main.jsx           # entry point
+└── index.css
