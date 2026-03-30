@@ -1,0 +1,47 @@
+import React from 'react';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {createStackNavigator} from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+import DriverHomeScreen from '../screens/driver/DriverHomeScreen';
+import DriverRidesScreen from '../screens/driver/DriverRidesScreen';
+import ActiveRideScreen from '../screens/driver/ActiveRideScreen';
+import EarningsScreen from '../screens/driver/EarningsScreen';
+
+const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+const DriverTabs: React.FC = () => (
+  <Tab.Navigator
+    screenOptions={({route}) => ({
+      headerShown: false,
+      tabBarStyle: {
+        backgroundColor: '#1e293b',
+        borderTopColor: '#065f46',
+        height: 60,
+        paddingBottom: 8,
+      },
+      tabBarActiveTintColor: '#10b981',
+      tabBarInactiveTintColor: '#64748b',
+      tabBarIcon: ({color, size}) => {
+        let iconName = 'home';
+        if (route.name === 'Dashboard') iconName = 'view-dashboard';
+        else if (route.name === 'Rides') iconName = 'car-multiple';
+        else if (route.name === 'Earnings') iconName = 'cash-multiple';
+        return <Icon name={iconName} size={size} color={color} />;
+      },
+    })}>
+    <Tab.Screen name="Dashboard" component={DriverHomeScreen} />
+    <Tab.Screen name="Rides" component={DriverRidesScreen} />
+    <Tab.Screen name="Earnings" component={EarningsScreen} />
+  </Tab.Navigator>
+);
+
+const DriverNavigator: React.FC = () => (
+  <Stack.Navigator screenOptions={{headerShown: false}}>
+    <Stack.Screen name="DriverTabs" component={DriverTabs} />
+    <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
+  </Stack.Navigator>
+);
+
+export default DriverNavigator;
