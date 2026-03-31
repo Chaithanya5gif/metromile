@@ -74,7 +74,7 @@ The core problem it solves: metro stations are hubs, but the last-mile and share
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Mobile App (Expo)                     │
+│                    Mobile App                            │
 │              React Native + TypeScript                   │
 └──────────────────────┬──────────────────────────────────┘
                        │  HTTP + WebSocket
