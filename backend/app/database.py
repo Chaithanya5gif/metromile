@@ -6,7 +6,18 @@ import os
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
+
+# Fix for older postgres:// URLs from some providers
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+if not DATABASE_URL:
+    # Fallback for dev or missing env, though it might fail later
+    # Using sqlite as a temporary fallback to allow non-DB routes to work
+    engine = create_engine("sqlite:///./temp.db")
+else:
+    engine = create_engine(DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

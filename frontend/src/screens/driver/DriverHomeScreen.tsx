@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -18,10 +20,11 @@ import {
   updateUserRole,
   getDriverRides,
   acceptRide,
+  updateDriverLocation,
 } from '../../services/api';
 import wsService from '../../services/websocket';
-import MapView, {Marker, PROVIDER_DEFAULT} from 'react-native-maps';
-import {midnightMapStyle} from '../../styles/MapStyle';
+import Geolocation from '@react-native-community/geolocation';
+import OSMMap from '../../components/OSMMap';
 
 const BENGALURU = {
   latitude: 12.9716,
@@ -30,6 +33,15 @@ const BENGALURU = {
   longitudeDelta: 0.02,
 };
 
+// Nearby metro stations to show as markers
+const NEARBY_STATIONS = [
+  {name: 'Majestic', lat: 12.9766, lng: 77.5713, emoji: '🚇', label: 'MAJESTIC'},
+  {name: 'Cubbon Park', lat: 12.9797, lng: 77.5901, emoji: '🚇', label: 'CUBBON PARK'},
+  {name: 'MG Road', lat: 12.9756, lng: 77.6064, emoji: '🚇', label: 'MG ROAD'},
+  {name: 'Indiranagar', lat: 12.9784, lng: 77.6408, emoji: '🚇', label: 'INDIRANAGAR'},
+  {name: 'Trinity', lat: 12.9725, lng: 77.6011, emoji: '🚇', label: 'TRINITY'},
+];
+
 const DriverHomeScreen: React.FC = () => {
   const {user} = useAuth();
   const navigation = useNavigation<any>();
@@ -37,6 +49,91 @@ const DriverHomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [pendingRides, setPendingRides] = useState<any[]>([]);
+  const [currentLocation, setCurrentLocation] = useState(BENGALURU);
+  const watchId = useRef<number | null>(null);
+
+  // Request GPS permission on Android
+  const requestLocationPermission = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'MetroMile Location Access',
+            message: 'MetroMile needs your location to show you on the map and help riders find you.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (_e) {
+        return false;
+      }
+    }
+    return true;
+  }, []);
+
+  // Start watching GPS
+  const startWatchingLocation = useCallback(() => {
+    watchId.current = Geolocation.watchPosition(
+      (position) => {
+        const {latitude, longitude} = position.coords;
+        const newRegion = {
+          latitude,
+          longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        };
+        setCurrentLocation(newRegion);
+
+        // Update driver location in backend
+        if (user && driver) {
+          updateDriverLocation(user.id, latitude, longitude).catch(() => {});
+        }
+      },
+      (_error) => {
+        // Fallback: use Bengaluru center
+        console.log('GPS Error, using default location');
+      },
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 10,
+        interval: 5000,
+        fastestInterval: 2000,
+      },
+    );
+  }, [user, driver]);
+
+  useEffect(() => {
+    const initLocation = async () => {
+      const hasPermission = await requestLocationPermission();
+      if (hasPermission) {
+        // Get initial position
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const {latitude, longitude} = position.coords;
+            const region = {
+              latitude,
+              longitude,
+              latitudeDelta: 0.015,
+              longitudeDelta: 0.015,
+            };
+            setCurrentLocation(region);
+          },
+          () => {},
+          {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+        );
+        startWatchingLocation();
+      }
+    };
+    initLocation();
+
+    return () => {
+      if (watchId.current !== null) {
+        Geolocation.clearWatch(watchId.current);
+      }
+    };
+  }, [requestLocationPermission, startWatchingLocation]);
 
   const loadDriver = useCallback(async () => {
     if (!user) return;
@@ -147,16 +244,25 @@ const DriverHomeScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Map Card */}
+        {/* Map Card with Live GPS */}
         <View style={s.mapCardWrap}>
-          <MapView
-            provider={PROVIDER_DEFAULT}
-            style={s.mapPreview}
-            initialRegion={BENGALURU}
-            customMapStyle={midnightMapStyle}
-            scrollEnabled={false}>
-            <Marker coordinate={BENGALURU} />
-          </MapView>
+          <OSMMap
+            latitude={currentLocation.latitude}
+            longitude={currentLocation.longitude}
+            zoom={14}
+            darkMode={true}
+            showUserLocation={true}
+            markers={[
+              {
+                lat: currentLocation.latitude,
+                lng: currentLocation.longitude,
+                title: 'You',
+                emoji: '🚗',
+                label: 'YOU',
+              },
+              ...NEARBY_STATIONS,
+            ]}
+          />
           {driver?.is_available && (
             <View style={s.trackingPill}>
               <View style={s.liveDot} />
@@ -256,7 +362,7 @@ const s = StyleSheet.create({
   toggleTextActive: {color: '#fff'},
   mapCardWrap: {
     margin: 16,
-    height: 200,
+    height: 280,
     borderRadius: 32,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -276,6 +382,49 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  driverPin: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: '#4B164C',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  metroMarkerWrap: {
+    alignItems: 'center',
+  },
+  metroMarkerCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+    borderWidth: 2,
+    borderColor: '#DB2777',
+  },
+  metroIcon: {
+    fontSize: 22,
+  },
+  metroLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+    letterSpacing: 0.5,
   },
   liveDot: {width: 8, height: 8, borderRadius: 4, backgroundColor: '#DB2777'},
   trackingText: {fontSize: 12, fontWeight: '700', color: '#4B164C'},

@@ -7,11 +7,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import MapView, {Marker, PROVIDER_DEFAULT} from 'react-native-maps';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
 import wsService from '../../services/websocket';
-import {midnightMapStyle} from '../../styles/MapStyle';
+import OSMMap from '../../components/OSMMap';
 
 const BENGALURU = {
   latitude: 12.9716,
@@ -27,19 +26,16 @@ const TrackRideScreen: React.FC = () => {
   const rideId = route.params?.rideId;
 
   const [driverLocation, setDriverLocation] = useState<{lat: number; lng: number} | null>(null);
+  const [routePath, setRoutePath] = useState<{lat: number; lng: number}[]>([]);
   const [rideStatus, setRideStatus] = useState<string>('pending');
   const [driverInfo, setDriverInfo] = useState<any>(null);
-  const mapRef = useRef<MapView>(null);
 
   const handleLocationUpdate = useCallback((data: any) => {
     if (data.type === 'location' && data.lat && data.lng) {
       setDriverLocation({lat: data.lat, lng: data.lng});
-      mapRef.current?.animateToRegion({
-        latitude: data.lat,
-        longitude: data.lng,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      });
+      // Append to route path for polyline
+      setRoutePath(prev => [...prev, {lat: data.lat, lng: data.lng}]);
+      // The OSMMap component handles animating to the latest point based on props
     }
   }, []);
 
@@ -108,32 +104,35 @@ const TrackRideScreen: React.FC = () => {
       </View>
 
       {/* Map */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_DEFAULT}
+      <OSMMap
+        latitude={driverLocation ? driverLocation.lat : BENGALURU.latitude}
+        longitude={driverLocation ? driverLocation.lng : BENGALURU.longitude}
+        zoom={14}
+        darkMode={false}
         style={s.map}
-        initialRegion={BENGALURU}
-        customMapStyle={midnightMapStyle}>
-        {driverLocation && (
-          <Marker
-            coordinate={{
-              latitude: driverLocation.lat,
-              longitude: driverLocation.lng,
-            }}
-            title="Driver"
-            description="Your driver">
-            <View style={s.driverMarker}>
-              <Text style={{fontSize: 24}}>🚗</Text>
-            </View>
-          </Marker>
-        )}
-        {/* Pickup marker */}
-        <Marker coordinate={{latitude: 12.9716, longitude: 77.5946}} title="Pickup">
-          <View style={s.pickupMarker}>
-            <Text style={{fontSize: 20}}>🚇</Text>
-          </View>
-        </Marker>
-      </MapView>
+        routePath={routePath}
+        showUserLocation={true}
+        markers={[
+          ...(driverLocation
+            ? [
+                {
+                  lat: driverLocation.lat,
+                  lng: driverLocation.lng,
+                  title: 'Driver',
+                  emoji: '🚗',
+                  label: 'DRIVER',
+                },
+              ]
+            : []),
+          {
+            lat: BENGALURU.latitude,
+            lng: BENGALURU.longitude,
+            title: 'Pickup',
+            emoji: '🚇',
+            label: 'PICKUP',
+          },
+        ]}
+      />
 
       {/* Status Card */}
       <View style={s.statusCard}>
@@ -193,12 +192,24 @@ const s = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#10b981',
   },
+  routeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DB2777',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
   statusCard: {
     backgroundColor: '#FFFFFF',
     padding: 20,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     minHeight: 140,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
   statusDot: {
     width: 10,

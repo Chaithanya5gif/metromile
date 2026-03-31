@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {WebView, WebViewMessageEvent} from 'react-native-webview';
@@ -29,10 +30,17 @@ const LoginScreen: React.FC = () => {
     }
   };
 
+  const CLERK_URL = 'https://metromile.vercel.app';
+
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
         <View style={s.header}>
+          <Image 
+            source={require('../../assets/logo.png')} 
+            style={s.logo}
+            resizeMode="contain"
+          />
           <Text style={s.welcomeText}>MetroMile</Text>
           <Text style={s.tagline}>Secure Auth Portal</Text>
         </View>
@@ -45,7 +53,7 @@ const LoginScreen: React.FC = () => {
             </View>
           )}
           <WebView
-            source={{uri: 'http://localhost:5173'}}
+            source={{uri: CLERK_URL}}
             onLoadEnd={() => setLoading(false)}
             onMessage={handleMessage}
             style={s.webview}
@@ -103,6 +111,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     zIndex: 10,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
   },
 });
 

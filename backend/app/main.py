@@ -4,7 +4,8 @@ from app.database import engine
 from app.models import models
 from app.routes import users, rides, drivers, matching, payments, ratings, websocket
 
-models.Base.metadata.create_all(bind=engine)
+# Database tables should be created via migrations or manual init in production
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="MetroMile API", version="2.0.0")
 

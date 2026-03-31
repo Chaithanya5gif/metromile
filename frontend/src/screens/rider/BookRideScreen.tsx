@@ -40,9 +40,16 @@ const BookRideScreen: React.FC = () => {
   const [step, setStep] = useState<'station' | 'area' | 'confirm'>('station');
 
   useEffect(() => {
+    console.log('FETCHING STATIONS...');
     getStations()
-      .then(setStations)
-      .catch(() => {});
+      .then(res => {
+        console.log('STATIONS LOADED:', Object.keys(res));
+        setStations(res);
+      })
+      .catch(err => {
+        console.error('STATIONS ERROR:', err.message || err);
+        Alert.alert('Connection Error', 'Failed to fetch metro stations. Please check your internet or redeploy backend.');
+      });
   }, []);
 
   const activeLineConfig = LINE_CONFIG.find(l => l.key === line)!;

@@ -6,13 +6,16 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import MapView, {Marker, PROVIDER_DEFAULT} from 'react-native-maps';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
 import {getDriverByUser, driverCompleteRide, updateDriverLocation} from '../../services/api';
 import wsService from '../../services/websocket';
+import Geolocation from '@react-native-community/geolocation';
+import OSMMap from '../../components/OSMMap';
 
 const BENGALURU = {
   latitude: 12.9716,
@@ -30,8 +33,7 @@ const ActiveRideScreen: React.FC = () => {
   const [driver, setDriver] = useState<any>(null);
   const [driverLoc, setDriverLoc] = useState({lat: 12.9716, lng: 77.5946});
   const [completing, setCompleting] = useState(false);
-  const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mapRef = useRef<MapView>(null);
+  const watchId = useRef<number | null>(null);
 
   const loadDriver = useCallback(async () => {
     if (!user) return;
@@ -45,36 +47,49 @@ const ActiveRideScreen: React.FC = () => {
     loadDriver();
   }, [loadDriver]);
 
-  // Broadcast location every 5 seconds (simulated GPS drift for demo)
+  // Real GPS tracking — broadcast location to rider via WebSocket
   useEffect(() => {
     if (!driver || !rideId || !riderId) return;
 
-    locationInterval.current = setInterval(() => {
-      // Simulate minor location drift
-      const newLat = driverLoc.lat + (Math.random() - 0.5) * 0.002;
-      const newLng = driverLoc.lng + (Math.random() - 0.5) * 0.002;
-      setDriverLoc({lat: newLat, lng: newLng});
-
-      // Send via WebSocket
-      wsService.sendLocation(riderId as string, newLat, newLng);
-
-      // Also update DB location
-      if (driver?.id) {
-        updateDriverLocation(driver.id, newLat, newLng).catch(() => {});
+    const startTracking = async () => {
+      if (Platform.OS === 'android') {
+        try {
+          await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          );
+        } catch (_e) {}
       }
 
-      // Animate map
-      mapRef.current?.animateToRegion({
-        latitude: newLat,
-        longitude: newLng,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      });
-    }, 5000);
+      watchId.current = Geolocation.watchPosition(
+        (position) => {
+          const {latitude, longitude} = position.coords;
+          setDriverLoc({lat: latitude, lng: longitude});
+
+          // Send real location via WebSocket to the rider
+          wsService.sendLocation(riderId as string, latitude, longitude);
+
+          // Also persist to DB
+          if (driver?.id) {
+            updateDriverLocation(driver.id, latitude, longitude).catch(() => {});
+          }
+        },
+        (_error) => {
+          console.log('Active Ride GPS error, using fallback');
+        },
+        {
+          enableHighAccuracy: true,
+          distanceFilter: 5,
+          interval: 3000,
+          fastestInterval: 1500,
+        },
+      );
+    };
+
+    startTracking();
 
     return () => {
-      if (locationInterval.current) {
-        clearInterval(locationInterval.current);
+      if (watchId.current !== null) {
+        Geolocation.clearWatch(watchId.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,8 +113,8 @@ const ActiveRideScreen: React.FC = () => {
               ride_id: rideId,
               fare: driver?.total_earnings ?? 75,
             });
-            if (locationInterval.current) {
-              clearInterval(locationInterval.current);
+            if (watchId.current !== null) {
+              Geolocation.clearWatch(watchId.current);
             }
             navigation.navigate('DriverTabs');
           } catch (_e) {
@@ -124,26 +139,29 @@ const ActiveRideScreen: React.FC = () => {
       </View>
 
       {/* Map */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_DEFAULT}
+      <OSMMap
+        latitude={driverLoc.lat}
+        longitude={driverLoc.lng}
+        zoom={15}
+        darkMode={true}
         style={s.map}
-        initialRegion={BENGALURU}>
-        <Marker
-          coordinate={{latitude: driverLoc.lat, longitude: driverLoc.lng}}
-          title="You (Driver)">
-          <View style={s.markerWrap}>
-            <Text style={{fontSize: 28}}>🚗</Text>
-          </View>
-        </Marker>
-        <Marker
-          coordinate={{latitude: BENGALURU.latitude, longitude: BENGALURU.longitude}}
-          title="Pickup Point">
-          <View style={s.markerWrap}>
-            <Text style={{fontSize: 24}}>📍</Text>
-          </View>
-        </Marker>
-      </MapView>
+        markers={[
+          {
+            lat: driverLoc.lat,
+            lng: driverLoc.lng,
+            title: 'You',
+            emoji: '🚗',
+            label: 'YOU',
+          },
+          {
+            lat: BENGALURU.latitude,
+            lng: BENGALURU.longitude,
+            title: 'Pickup',
+            emoji: '📍',
+            label: 'PICKUP',
+          },
+        ]}
+      />
 
       {/* Bottom card */}
       <View style={s.bottomCard}>
