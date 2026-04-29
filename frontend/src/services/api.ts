@@ -64,8 +64,11 @@ export const getUserRides = (userId: string) =>
 export const completeRide = (rideId: string | number) =>
   api.put(`/rides/${rideId}/complete`).then(r => r.data);
 
-export const bookRide = (rideId: number, riderId: string, seats: number = 1) =>
-  api.post('/rides/book', {ride_id: rideId, rider_id: riderId, seats}).then(r => r.data);
+export const bookRide = (rideId: number, riderId: string, seats: number, pickup_station: string, drop_station: string) =>
+  api.post('/rides/book', {ride_id: rideId, rider_id: riderId, seats, pickup_station, drop_station}).then(r => r.data);
+
+export const findAvailableRides = (station: string, area: string) =>
+  api.get(`/rides/?station=${encodeURIComponent(station)}&area=${encodeURIComponent(area)}`).then(r => r.data);
 
 // ─── MATCHING ─────────────────────────────────────────────────────────────
 export const findMatches = (station: string, area: string) =>

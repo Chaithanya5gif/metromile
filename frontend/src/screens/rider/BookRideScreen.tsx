@@ -13,7 +13,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
-import {getStations, getAreas, createRide} from '../../services/api';
+import {getStations, getAreas, createRide, findAvailableRides, bookRide} from '../../services/api';
 
 const LINE_CONFIG = [
   {key: 'purple' as const, label: 'Purple', color: '#7C3AED', bg: '#F5F3FF', apiKey: 'purple_line'},
@@ -37,7 +37,10 @@ const BookRideScreen: React.FC = () => {
   const [seats, setSeats] = useState(1);
   const [booking, setBooking] = useState(false);
   const [stationSearch, setStationSearch] = useState('');
-  const [step, setStep] = useState<'station' | 'area' | 'confirm'>('station');
+  const [step, setStep] = useState<'station' | 'area' | 'pools' | 'confirm'>('station');
+  const [availablePools, setAvailablePools] = useState<any[]>([]);
+  const [selectedPoolId, setSelectedPoolId] = useState<number | null>(null);
+  const [loadingPools, setLoadingPools] = useState(false);
 
   useEffect(() => {
     console.log('FETCHING STATIONS...');
@@ -78,35 +81,58 @@ const BookRideScreen: React.FC = () => {
     setStep('area');
   };
 
-  const handleAreaSelect = (area: string) => {
+  const handleAreaSelect = async (area: string) => {
     setSelectedArea(area);
-    setStep('confirm');
+    setLoadingPools(true);
+    setStep('pools');
+    try {
+      const pools = await findAvailableRides(selectedStation, area);
+      setAvailablePools(pools || []);
+    } catch (e) {
+      setAvailablePools([]);
+    } finally {
+      setLoadingPools(false);
+    }
   };
 
   const handleBooking = async () => {
     if (!user || !selectedStation || !selectedArea) return;
     setBooking(true);
     try {
-      const ride = await createRide({
-        rider_id: user.id,
-        metro_station: selectedStation,
-        destination_area: selectedArea,
-        exact_destination: selectedArea,
-        seats_needed: seats,
-      });
-      Alert.alert('🎉 Booked!', `Ride created from ${selectedStation} to ${selectedArea}.`, [
-        {
-          text: 'Track Ride',
-          onPress: () =>
-            navigation.navigate('RiderTabs', {
-              screen: 'Track',
-              params: {rideId: ride.id},
-            }),
-        },
-      ]);
+      if (selectedPoolId) {
+        await bookRide(selectedPoolId, user.id, seats, selectedStation, selectedArea);
+        Alert.alert('🎉 Joined!', `Successfully joined the pool from ${selectedStation} to ${selectedArea}.`, [
+          {
+            text: 'Track Ride',
+            onPress: () =>
+              navigation.navigate('RiderTabs', {
+                screen: 'Track',
+                params: {rideId: selectedPoolId},
+              }),
+          },
+        ]);
+      } else {
+        const ride = await createRide({
+          rider_id: user.id,
+          metro_station: selectedStation,
+          destination_area: selectedArea,
+          exact_destination: selectedArea,
+          seats_needed: seats,
+        });
+        Alert.alert('🎉 Booked!', `Ride created from ${selectedStation} to ${selectedArea}.`, [
+          {
+            text: 'Track Ride',
+            onPress: () =>
+              navigation.navigate('RiderTabs', {
+                screen: 'Track',
+                params: {rideId: ride.id},
+              }),
+          },
+        ]);
+      }
     } catch (_e: any) {
-      console.log('RIDE CREATION ERROR:', _e.response?.data || _e.message || _e);
-      Alert.alert('Error', 'Booking failed. Please try again.');
+      console.log('BOOKING ERROR:', _e.response?.data || _e.message || _e);
+      Alert.alert('Error', _e.response?.data?.detail || 'Booking failed. Please try again.');
     } finally {
       setBooking(false);
     }
@@ -114,8 +140,11 @@ const BookRideScreen: React.FC = () => {
 
   const handleBack = () => {
     if (step === 'confirm') {
+      setStep('pools');
+    } else if (step === 'pools') {
       setStep('area');
       setSelectedArea('');
+      setSelectedPoolId(null);
     } else if (step === 'area') {
       setStep('station');
       setSelectedStation('');
@@ -133,7 +162,7 @@ const BookRideScreen: React.FC = () => {
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>
-          {step === 'station' ? 'Select Metro Station' : step === 'area' ? 'Select Destination' : 'Confirm Ride'}
+          {step === 'station' ? 'Select Metro Station' : step === 'area' ? 'Select Destination' : step === 'pools' ? 'Available Pools' : 'Confirm Ride'}
         </Text>
         <View style={{width: 50}} />
       </View>
@@ -263,6 +292,54 @@ const BookRideScreen: React.FC = () => {
               </TouchableOpacity>
             )}
           />
+        </View>
+      )}
+
+      {/* STEP 2.5: Pools Selection */}
+      {step === 'pools' && (
+        <View style={{flex: 1, paddingHorizontal: 16}}>
+          <Text style={s.stepTitle}>Available Pools to {selectedArea}</Text>
+          {loadingPools ? (
+            <ActivityIndicator size="large" color="#7C3AED" style={{marginTop: 40}} />
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 40}}>
+              {availablePools.filter(p => p.available_seats > 0).map((pool) => (
+                <TouchableOpacity 
+                  key={pool.id} 
+                  style={[s.poolCard, selectedPoolId === pool.id && s.poolCardActive]}
+                  onPress={() => {
+                     setSelectedPoolId(pool.id);
+                     setStep('confirm');
+                  }}
+                >
+                  <View style={s.poolHeader}>
+                    <Text style={s.poolTitle}>Shared Auto Pool</Text>
+                    <View style={s.seatsBadge}>
+                      <Text style={s.seatsBadgeText}>{pool.available_seats} seats left</Text>
+                    </View>
+                  </View>
+                  <Text style={s.poolRoute}>{pool.metro_station} → {pool.destination_area}</Text>
+                </TouchableOpacity>
+              ))}
+
+              <View style={s.poolDivider}>
+                <View style={s.poolDividerLine} />
+                <Text style={s.poolDividerText}>OR</Text>
+                <View style={s.poolDividerLine} />
+              </View>
+
+              <TouchableOpacity 
+                style={s.newPoolCard}
+                onPress={() => {
+                   setSelectedPoolId(null);
+                   setStep('confirm');
+                }}
+              >
+                <Text style={s.newPoolTitle}>+ Start a New Pool</Text>
+                <Text style={s.newPoolSub}>Be the first to request a ride for this route</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
         </View>
       )}
 
@@ -596,6 +673,44 @@ const s = StyleSheet.create({
     elevation: 6,
   },
   bookBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
+
+  // Pools
+  poolCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  poolCardActive: {
+    borderColor: '#7C3AED',
+    backgroundColor: '#FAF5FF',
+  },
+  poolHeader: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8},
+  poolTitle: {fontSize: 15, fontWeight: '700', color: '#111827'},
+  seatsBadge: {backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6},
+  seatsBadgeText: {fontSize: 11, fontWeight: '700', color: '#10B981'},
+  poolRoute: {fontSize: 13, color: '#6B7280'},
+  poolDivider: {flexDirection: 'row', alignItems: 'center', marginVertical: 16},
+  poolDividerLine: {flex: 1, height: 1, backgroundColor: '#E5E7EB'},
+  poolDividerText: {marginHorizontal: 10, fontSize: 13, fontWeight: '700', color: '#9CA3AF'},
+  newPoolCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  newPoolTitle: {fontSize: 15, fontWeight: '700', color: '#7C3AED', marginBottom: 4},
+  newPoolSub: {fontSize: 12, color: '#9CA3AF'},
 });
 
 export default BookRideScreen;
