@@ -311,7 +311,7 @@ const DriverHomeScreen: React.FC = () => {
               <TouchableOpacity style={s.declineBtn} onPress={fetchRequests}>
                 <Text style={s.declineText}>Skip</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.acceptBtn} onPress={() => handleAccept(latestReq.id)}>
+              <TouchableOpacity style={s.acceptBtn} onPress={() => handleAccept(latestReq.id || latestReq.ride_id)}>
                 <Text style={s.acceptText}>Accept Request →</Text>
               </TouchableOpacity>
             </View>

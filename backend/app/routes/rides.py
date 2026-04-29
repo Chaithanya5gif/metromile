@@ -150,6 +150,8 @@ class BookingCreate(BaseModel):
     ride_id: int
     rider_id: str
     seats: int = 1
+    pickup_station: str
+    drop_station: str
 
 @router.get("/stations")
 def get_stations():
@@ -211,14 +213,65 @@ def get_ride(ride_id: int, db: Session = Depends(get_db)):
 
 @router.post("/book")
 def book_ride(booking: BookingCreate, db: Session = Depends(get_db)):
-    ride = db.query(Ride).filter(Ride.id == booking.ride_id).first()
+    try:
+        # Use with_for_update() for pessimistic locking to prevent double booking
+        ride = db.query(Ride).with_for_update().filter(Ride.id == booking.ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+            
+        if ride.status not in [RideStatus.pending, RideStatus.active]:
+            raise HTTPException(status_code=400, detail="Ride is no longer active")
+            
+        if booking.seats > ride.available_seats:
+            raise HTTPException(status_code=400, detail="Not enough seats available")
+            
+        # Atomically decrement available seats
+        ride.available_seats -= booking.seats
+        
+        new_booking = Booking(
+            ride_id=booking.ride_id, 
+            rider_id=booking.rider_id, 
+            seats=booking.seats,
+            pickup_station=booking.pickup_station,
+            drop_station=booking.drop_station,
+            status="confirmed"
+        )
+        db.add(new_booking)
+        db.commit()
+        db.refresh(new_booking)
+        return {"message": "Booked!", "booking_id": new_booking.id}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Booking failed due to high demand, please try again")
+
+@router.get("/{ride_id}/passengers")
+def get_ride_passengers(ride_id: int, db: Session = Depends(get_db)):
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
-    new_booking = Booking(ride_id=booking.ride_id, rider_id=booking.rider_id, seats=booking.seats)
-    db.add(new_booking)
-    db.commit()
-    db.refresh(new_booking)
-    return {"message": "Booked!", "booking_id": new_booking.id}
+        
+    bookings = db.query(Booking).filter(Booking.ride_id == ride_id, Booking.status == "confirmed").all()
+    
+    grouped_passengers = {}
+    for b in bookings:
+        if b.drop_station not in grouped_passengers:
+            grouped_passengers[b.drop_station] = []
+        grouped_passengers[b.drop_station].append({
+            "rider_id": b.rider_id,
+            "seats": b.seats,
+            "pickup_station": b.pickup_station,
+            "booking_id": b.id
+        })
+        
+    return {
+        "ride_id": ride_id,
+        "available_seats": ride.available_seats,
+        "total_bookings": len(bookings),
+        "grouped_by_drop_station": grouped_passengers
+    }
 
 @router.put("/{ride_id}/complete")
 def complete_ride(ride_id: int, db: Session = Depends(get_db)):

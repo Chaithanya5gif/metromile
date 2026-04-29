@@ -93,13 +93,19 @@ from app.routes.websocket import manager
 
 @router.put("/{user_id}/accept/{ride_id}")
 async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db)):
-    driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+    if user_id.isdigit():
+        driver = db.query(Driver).filter(Driver.id == int(user_id)).first()
+    else:
+        driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+        
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
-    if ride.status != RideStatus.pending:
+    
+    print(f"DEBUG accept_ride: ride_id={ride_id}, status={ride.status}")
+    if ride.status != RideStatus.pending and ride.status != "pending":
         raise HTTPException(status_code=400, detail="Ride no longer available")
     
     ride.driver_id = driver.id
@@ -109,7 +115,7 @@ async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db))
     db.commit()
 
     # Broadcast to rider
-    await manager.broadcast_to_user(ride.rider_id, {
+    await manager.send_to(ride.rider_id, {
         "type": "ride_accepted",
         "ride_id": ride.id,
         "driver_id": driver.id,
@@ -123,7 +129,11 @@ async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db))
 
 @router.put("/{user_id}/complete/{ride_id}")
 async def driver_complete_ride(user_id: str, ride_id: int, db: Session = Depends(get_db)):
-    driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+    if user_id.isdigit():
+        driver = db.query(Driver).filter(Driver.id == int(user_id)).first()
+    else:
+        driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+        
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not driver or not ride:
         raise HTTPException(status_code=404, detail="Not found")
@@ -138,7 +148,7 @@ async def driver_complete_ride(user_id: str, ride_id: int, db: Session = Depends
     db.commit()
 
     # Broadcast to rider
-    await manager.broadcast_to_user(ride.rider_id, {
+    await manager.send_to(ride.rider_id, {
         "type": "ride_completed",
         "ride_id": ride.id
     })
