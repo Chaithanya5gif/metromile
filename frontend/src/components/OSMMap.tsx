@@ -48,8 +48,8 @@ const OSMMap: React.FC<OSMMapProps> = ({
 
     const markersJS = markers
       .map(
-        (m) => `
-      L.marker([${m.lat}, ${m.lng}], {
+        (m, idx) => `
+      var marker_${idx} = L.marker([${m.lat}, ${m.lng}], {
         icon: L.divIcon({
           className: 'custom-marker',
           html: '<div class="marker-pin"><span class="marker-emoji">${m.emoji || '📍'}</span></div>${m.label ? `<div class="marker-label">${m.label}</div>` : ''}',
@@ -57,6 +57,9 @@ const OSMMap: React.FC<OSMMapProps> = ({
           iconAnchor: [22, 50],
         })
       }).addTo(map)${m.title ? `.bindPopup('${m.title}')` : ''};
+      if ('${m.label}' === 'DRIVER' || '${m.title}' === 'Driver') {
+        window.driverMarker = marker_${idx};
+      }
     `,
       )
       .join('\n');
@@ -65,24 +68,12 @@ const OSMMap: React.FC<OSMMapProps> = ({
       routePath.length > 1
         ? `
       var routeCoords = [${routePath.map((p) => `[${p.lat}, ${p.lng}]`).join(',')}];
-      L.polyline(routeCoords, {
-        color: '#DB2777',
-        weight: 4,
+      window._routeLine = L.polyline(routeCoords, {
+        color: '#000000',
+        weight: 5,
         opacity: 0.9,
         smoothFactor: 1,
-        dashArray: null,
       }).addTo(map);
-      routeCoords.forEach(function(coord, i) {
-        if (i % 3 === 0) {
-          L.circleMarker(coord, {
-            radius: 4,
-            fillColor: '#DB2777',
-            color: '#FFFFFF',
-            weight: 2,
-            fillOpacity: 1,
-          }).addTo(map);
-        }
-      });
     `
         : '';
 
@@ -131,8 +122,8 @@ const OSMMap: React.FC<OSMMapProps> = ({
       border-radius: 50%;
       background: #FFFFFF;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.3);
-      border: 2.5px solid #DB2777;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      border: 3px solid #10b981;
       margin: 0 auto;
     }
     .marker-emoji { font-size: 22px; line-height: 1; }
@@ -197,16 +188,19 @@ const OSMMap: React.FC<OSMMapProps> = ({
           map.setView([lat, lng], map.getZoom(), {animate: true});
         };
 
+        window.updateDriverMarker = function(lat, lng) {
+          if (window.driverMarker) {
+            window.driverMarker.setLatLng([lat, lng]);
+          }
+        };
+
         window.addRoutePoint = function(lat, lng) {
           if (!map) return;
           if (!window._routeCoords) window._routeCoords = [];
           window._routeCoords.push([lat, lng]);
           if (window._routeLine) map.removeLayer(window._routeLine);
           window._routeLine = L.polyline(window._routeCoords, {
-            color: '#DB2777', weight: 4, opacity: 0.9,
-          }).addTo(map);
-          L.circleMarker([lat, lng], {
-            radius: 4, fillColor: '#DB2777', color: '#FFF', weight: 2, fillOpacity: 1,
+            color: '#000000', weight: 5, opacity: 0.9,
           }).addTo(map);
         };
       }
@@ -217,11 +211,14 @@ const OSMMap: React.FC<OSMMapProps> = ({
 </html>`;
   }, [latitude, longitude, zoom, markers, routePath, darkMode, showUserLocation]);
 
-  // Update center when coordinates change
+  // We no longer re-render the whole HTML when latitude/longitude updates, 
+  // we just inject JS to update it.
   useEffect(() => {
-    webViewRef.current?.injectJavaScript(
-      `if(window.updateCenter) window.updateCenter(${latitude}, ${longitude}); true;`,
-    );
+    if (webViewRef.current && latitude && longitude) {
+      webViewRef.current.injectJavaScript(
+        `if(window.updateCenter) window.updateCenter(${latitude}, ${longitude}); if(window.updateDriverMarker) window.updateDriverMarker(${latitude}, ${longitude}); if(window.addRoutePoint) window.addRoutePoint(${latitude}, ${longitude}); true;`,
+      );
+    }
   }, [latitude, longitude]);
 
   return (

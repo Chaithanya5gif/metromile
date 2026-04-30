@@ -34,6 +34,7 @@ const PaymentScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [tip, setTip] = useState(0);
 
   useEffect(() => {
     if (!rideId) { setLoading(false); return; }
@@ -49,7 +50,7 @@ const PaymentScreen: React.FC = () => {
       const order = await createPayment({
         ride_id: parseInt(rideId),
         rider_id: user.id,
-        amount: ride?.fare_per_person || 75,
+        amount: (ride?.fare_per_person || 75) + tip,
         method,
       });
       await verifyPayment(order.payment_id);
@@ -83,7 +84,7 @@ const PaymentScreen: React.FC = () => {
           <Text style={s.successIcon}>✅</Text>
           <Text style={s.successTitle}>Payment Successful!</Text>
           <Text style={s.successAmount}>
-            ₹{ride?.fare_per_person?.toFixed(2) || '—'}
+            ₹{((ride?.fare_per_person || 75) + tip).toFixed(2)}
           </Text>
           <Text style={s.successNote}>Thank you for carpooling with MetroMile</Text>
           <TouchableOpacity style={s.rateBtn} onPress={goToRating}>
@@ -116,24 +117,37 @@ const PaymentScreen: React.FC = () => {
         <View style={s.fareCard}>
           <Text style={s.fareLabel}>Amount to Pay</Text>
           <Text style={s.fareAmt}>
-            ₹{ride?.fare_per_person?.toFixed(2) || '—'}
+            ₹{((ride?.fare_per_person || 75) + tip).toFixed(2)}
           </Text>
           <Text style={s.fareRoute}>
             {ride?.metro_station || '—'} → {ride?.destination_area || '—'}
           </Text>
           <View style={s.fareDivider} />
           <View style={s.fareRow}>
-            <Text style={s.fareDetail}>Base Fare</Text>
-            <Text style={s.fareDetailVal}>₹30</Text>
+            <Text style={s.fareDetail}>Ride Fare ({ride?.vehicle_type || 'auto'})</Text>
+            <Text style={s.fareDetailVal}>₹{ride?.fare_per_person?.toFixed(2) || '75.00'}</Text>
           </View>
-          <View style={s.fareRow}>
-            <Text style={s.fareDetail}>Distance (~3km)</Text>
-            <Text style={s.fareDetailVal}>₹45</Text>
-          </View>
-          <View style={s.fareRow}>
-            <Text style={s.fareDetail}>Carpool Discount</Text>
-            <Text style={[s.fareDetailVal, {color: '#10b981'}]}>- Shared</Text>
-          </View>
+          {tip > 0 && (
+            <View style={s.fareRow}>
+              <Text style={s.fareDetail}>Driver Tip</Text>
+              <Text style={s.fareDetailVal}>+ ₹{tip}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Tipping Section */}
+        <Text style={s.sectionLabel}>Tip Your Driver</Text>
+        <View style={s.tipContainer}>
+          {[0, 10, 20, 50].map((amount) => (
+            <TouchableOpacity
+              key={amount}
+              style={[s.tipBtn, tip === amount && s.tipBtnActive]}
+              onPress={() => setTip(amount)}>
+              <Text style={[s.tipBtnText, tip === amount && s.tipBtnTextActive]}>
+                {amount === 0 ? 'No Tip' : `₹${amount}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Payment Methods */}
@@ -163,7 +177,7 @@ const PaymentScreen: React.FC = () => {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={s.payBtnText}>
-              Pay ₹{ride?.fare_per_person?.toFixed(2) || '—'} →
+              Pay ₹{((ride?.fare_per_person || 75) + tip).toFixed(2)} →
             </Text>
           )}
         </TouchableOpacity>
@@ -193,6 +207,16 @@ const s = StyleSheet.create({
   fareDetail: {color: '#6B7280', fontSize: 13},
   fareDetailVal: {color: '#111827', fontSize: 13, fontWeight: '600'},
   sectionLabel: {color: '#6B7280', fontSize: 13, fontWeight: '700', marginBottom: 12},
+  tipContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    gap: 8,
+  },
+  tipBtn: {flex: 1, backgroundColor: '#FFFFFF', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent'},
+  tipBtnActive: {borderColor: '#581C87', backgroundColor: '#FAF5FF'},
+  tipBtnText: {color: '#4B5563', fontSize: 14, fontWeight: '700'},
+  tipBtnTextActive: {color: '#581C87'},
   methodCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,

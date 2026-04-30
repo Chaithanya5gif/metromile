@@ -27,8 +27,14 @@ class UserResponse(BaseModel):
 def create_or_get_user(user: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.id == user.id).first()
     if existing:
+        # Update name if it's currently a placeholder or missing
+        if user.full_name and (not existing.full_name or existing.full_name in ["Rider", "Driver", "User", "Metro Driver"]):
+            existing.full_name = user.full_name
+            db.commit()
+            db.refresh(existing)
         return existing
-    new_user = User(id=user.id, email=user.email, full_name=user.full_name, phone=user.phone, role=UserRole.rider)
+    
+    new_user = User(id=user.id, email=user.email, full_name=user.full_name or "User", phone=user.phone, role=UserRole.rider)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)

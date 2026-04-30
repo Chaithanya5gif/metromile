@@ -161,6 +161,11 @@ const ActiveRideScreen: React.FC = () => {
             label: 'PICKUP',
           },
         ]}
+        routePath={[
+          {lat: driverLoc.lat, lng: driverLoc.lng},
+          {lat: driverLoc.lat + 0.01, lng: driverLoc.lng + 0.01},
+          {lat: BENGALURU.latitude, lng: BENGALURU.longitude},
+        ]}
       />
 
       {/* Bottom card */}

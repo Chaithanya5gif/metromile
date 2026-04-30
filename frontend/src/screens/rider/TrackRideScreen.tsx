@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
@@ -29,6 +30,14 @@ const TrackRideScreen: React.FC = () => {
   const [routePath, setRoutePath] = useState<{lat: number; lng: number}[]>([]);
   const [rideStatus, setRideStatus] = useState<string>('pending');
   const [driverInfo, setDriverInfo] = useState<any>(null);
+
+  const getVehicleEmoji = () => {
+    const type = driverInfo?.vehicle_type?.toLowerCase();
+    if (type === 'bike') return '🛵';
+    if (type === 'auto') return '🛺';
+    if (type === 'mini') return '🚗';
+    return '✨'; // priority/premium
+  };
 
   const handleLocationUpdate = useCallback((data: any) => {
     if (data.type === 'location' && data.lat && data.lng) {
@@ -92,6 +101,16 @@ const TrackRideScreen: React.FC = () => {
     return map[rideStatus] || 'Tracking...';
   };
 
+  const handleShareSafety = async () => {
+    try {
+      const message = `Track my MetroMile ride! I'm in a ${driverInfo?.vehicle_type || 'vehicle'} (Driver: ${driverInfo?.driver_name || 'Assigned'}). Live map: https://metromile.app/track/${rideId}`;
+      await Share.share({
+        message,
+        title: 'MetroMile Live Track',
+      });
+    } catch (error) {}
+  };
+
   return (
     <SafeAreaView style={s.safe}>
       {/* Back button */}
@@ -100,8 +119,16 @@ const TrackRideScreen: React.FC = () => {
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.topTitle}>Live Tracking</Text>
-        <View style={{width: 60}} />
+        <TouchableOpacity onPress={handleShareSafety} style={s.shareBtn}>
+          <Text style={s.shareBtnText}>🛡️ Share</Text>
+        </TouchableOpacity>
       </View>
+
+      {rideStatus === 'accepted' || rideStatus === 'active' ? (
+        <View style={s.liveNotice}>
+          <Text style={s.liveNoticeText}>🟢 Live GPS Connected</Text>
+        </View>
+      ) : null}
 
       {/* Map */}
       <OSMMap
@@ -119,7 +146,7 @@ const TrackRideScreen: React.FC = () => {
                   lat: driverLocation.lat,
                   lng: driverLocation.lng,
                   title: 'Driver',
-                  emoji: '🚗',
+                  emoji: getVehicleEmoji(),
                   label: 'DRIVER',
                 },
               ]
@@ -177,6 +204,14 @@ const s = StyleSheet.create({
   backBtn: {},
   backText: {color: '#581C87', fontSize: 16, fontWeight: '600'},
   topTitle: {color: '#111827', fontSize: 18, fontWeight: '800'},
+  shareBtn: {backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12},
+  shareBtnText: {color: '#10b981', fontSize: 13, fontWeight: '700'},
+  liveNotice: {
+    backgroundColor: '#000',
+    padding: 6,
+    alignItems: 'center',
+  },
+  liveNoticeText: {color: '#10b981', fontSize: 11, fontWeight: '700', letterSpacing: 1},
   map: {flex: 1},
   driverMarker: {
     backgroundColor: '#FFFFFF',

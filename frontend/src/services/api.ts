@@ -10,7 +10,7 @@ export {BASE_WS};
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {'Content-Type': 'application/json'},
 });
 
@@ -41,10 +41,10 @@ export const updateUserRole = (userId: string, role: string) =>
   api.put(`/users/${userId}/role?role=${role}`).then(r => r.data);
 
 // ─── RIDES ────────────────────────────────────────────────────────────────
-export const getStations = () => api.get('/rides/stations').then(r => r.data);
+export const getStations = () => api.get('/rides/stations/').then(r => r.data);
 
 export const getAreas = (station: string) =>
-  api.get(`/rides/areas/${encodeURIComponent(station)}`).then(r => r.data);
+  api.get(`/rides/areas/${encodeURIComponent(station)}/`).then(r => r.data);
 
 export const createRide = (data: {
   rider_id: string;
@@ -53,6 +53,8 @@ export const createRide = (data: {
   exact_destination: string;
   seats_needed?: number;
   scheduled_time?: string;
+  vehicle_type?: string;
+  fare_per_person?: number;
 }) => api.post('/rides/', data).then(r => r.data);
 
 export const getRide = (rideId: string | number) =>

@@ -37,12 +37,31 @@ const BookRideScreen: React.FC = () => {
   const [seats, setSeats] = useState(1);
   const [booking, setBooking] = useState(false);
   const [stationSearch, setStationSearch] = useState('');
-  const [step, setStep] = useState<'station' | 'area' | 'pools' | 'confirm'>('station');
-  const [availablePools, setAvailablePools] = useState<any[]>([]);
-  const [selectedPoolId, setSelectedPoolId] = useState<number | null>(null);
-  const [loadingPools, setLoadingPools] = useState(false);
+  const [step, setStep] = useState<'station' | 'area' | 'choose' | 'matches' | 'confirm'>('station');
+  const [vehicleType, setVehicleType] = useState<'auto' | 'mini' | 'priority' | 'bike'>('auto');
+  const [isCarpool, setIsCarpool] = useState(false);
+  const [farePerPerson, setFarePerPerson] = useState(85);
+  const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
 
-  useEffect(() => {
+  const getDynamicDrivers = (type: string, baseFare: number) => {
+    const vehicles = {
+      auto: ['Bajaj RE', 'Piaggio Ape', 'Mahindra Treo'],
+      mini: ['Tata Tiago', 'Maruti Swift', 'Hyundai i10'],
+      priority: ['Toyota Innova', 'Honda City', 'Kia Seltos'],
+      bike: ['Honda Activa', 'TVS Jupiter', 'Bajaj Pulsar']
+    };
+    
+    const vList = vehicles[type as keyof typeof vehicles] || vehicles.auto;
+    
+    return [
+      { id: 101, name: 'Elena Rodriguez', rating: 4.9, vehicle: vList[0], away: '0.4 km away', time: '2 min', fare: baseFare },
+      { id: 102, name: 'Marcus Chen', rating: 5.0, vehicle: vList[1], away: '1.2 km away', time: '5 min', fare: baseFare },
+      { id: 103, name: 'Vikram Singh', rating: 4.7, vehicle: vList[2], away: '1.8 km away', time: '8 min', fare: baseFare }
+    ];
+  };
+
+  const fetchStations = useCallback(() => {
     console.log('FETCHING STATIONS...');
     getStations()
       .then(res => {
@@ -51,9 +70,17 @@ const BookRideScreen: React.FC = () => {
       })
       .catch(err => {
         console.error('STATIONS ERROR:', err.message || err);
-        Alert.alert('Connection Error', 'Failed to fetch metro stations. Please check your internet or redeploy backend.');
+        Alert.alert(
+          'Connection Error', 
+          'Failed to fetch metro stations. Please check your internet.',
+          [{ text: 'Retry', onPress: fetchStations }]
+        );
       });
   }, []);
+
+  useEffect(() => {
+    fetchStations();
+  }, [fetchStations]);
 
   const activeLineConfig = LINE_CONFIG.find(l => l.key === line)!;
   const allLineStations =
@@ -83,41 +110,36 @@ const BookRideScreen: React.FC = () => {
 
   const handleAreaSelect = async (area: string) => {
     setSelectedArea(area);
-    setLoadingPools(true);
-    setStep('pools');
-    try {
-      const pools = await findAvailableRides(selectedStation, area);
-      setAvailablePools(pools || []);
-    } catch (e) {
-      setAvailablePools([]);
-    } finally {
-      setLoadingPools(false);
-    }
+    setStep('choose');
+  };
+
+  const handleChooseRide = (type: 'auto' | 'mini' | 'priority' | 'bike', fare: number, allowCarpool: boolean) => {
+    setVehicleType(type);
+    setFarePerPerson(fare);
+    setIsCarpool(allowCarpool); // Just as a default, they could toggle later
+    
+    // Move to matching screen
+    setLoadingDrivers(true);
+    setStep('matches');
+    setTimeout(() => {
+      setNearbyDrivers(getDynamicDrivers(type, fare));
+      setLoadingDrivers(false);
+    }, 1500);
   };
 
   const handleBooking = async () => {
     if (!user || !selectedStation || !selectedArea) return;
     setBooking(true);
     try {
-      if (selectedPoolId) {
-        await bookRide(selectedPoolId, user.id, seats, selectedStation, selectedArea);
-        Alert.alert('🎉 Joined!', `Successfully joined the pool from ${selectedStation} to ${selectedArea}.`, [
-          {
-            text: 'Track Ride',
-            onPress: () =>
-              navigation.navigate('RiderTabs', {
-                screen: 'Track',
-                params: {rideId: selectedPoolId},
-              }),
-          },
-        ]);
-      } else {
+
         const ride = await createRide({
           rider_id: user.id,
           metro_station: selectedStation,
           destination_area: selectedArea,
           exact_destination: selectedArea,
           seats_needed: seats,
+          vehicle_type: vehicleType,
+          fare_per_person: Math.round((isCarpool ? farePerPerson * (vehicleType === 'mini' ? 0.6 : 0.7) : farePerPerson) / seats)
         });
         Alert.alert('🎉 Booked!', `Ride created from ${selectedStation} to ${selectedArea}.`, [
           {
@@ -129,7 +151,7 @@ const BookRideScreen: React.FC = () => {
               }),
           },
         ]);
-      }
+
     } catch (_e: any) {
       console.log('BOOKING ERROR:', _e.response?.data || _e.message || _e);
       Alert.alert('Error', _e.response?.data?.detail || 'Booking failed. Please try again.');
@@ -140,11 +162,11 @@ const BookRideScreen: React.FC = () => {
 
   const handleBack = () => {
     if (step === 'confirm') {
-      setStep('pools');
-    } else if (step === 'pools') {
+      setStep('matches');
+    } else if (step === 'matches') {
+      setStep('choose');
+    } else if (step === 'choose') {
       setStep('area');
-      setSelectedArea('');
-      setSelectedPoolId(null);
     } else if (step === 'area') {
       setStep('station');
       setSelectedStation('');
@@ -162,7 +184,7 @@ const BookRideScreen: React.FC = () => {
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>
-          {step === 'station' ? 'Select Metro Station' : step === 'area' ? 'Select Destination' : step === 'pools' ? 'Available Pools' : 'Confirm Ride'}
+          {step === 'station' ? 'Select Metro Station' : step === 'area' ? 'Select Destination' : step === 'choose' ? 'Choose a Ride' : step === 'matches' ? 'Nearby Matches' : 'Confirm Ride'}
         </Text>
         <View style={{width: 50}} />
       </View>
@@ -295,49 +317,82 @@ const BookRideScreen: React.FC = () => {
         </View>
       )}
 
-      {/* STEP 2.5: Pools Selection */}
-      {step === 'pools' && (
-        <View style={{flex: 1, paddingHorizontal: 16}}>
-          <Text style={s.stepTitle}>Available Pools to {selectedArea}</Text>
-          {loadingPools ? (
+      {/* STEP 3: Choose a Ride */}
+      {step === 'choose' && (
+        <View style={{flex: 1}}>
+          <ScrollView contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 40}}>
+            
+            {/* Auto Card */}
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'auto' && s.rideOptionActive]} onPress={() => handleChooseRide('auto', 85, true)}>
+              <View style={s.rideIconWrap}><Text style={s.rideIcon}>🛺</Text></View>
+              <View style={s.rideTextWrap}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Text style={s.rideOptionName}>Auto</Text>
+                  <View style={s.recBadge}><Text style={s.recBadgeText}>Recommended</Text></View>
+                </View>
+                <Text style={s.rideOptionSub}>2 min away • Pocket friendly</Text>
+              </View>
+              <Text style={s.rideOptionPrice}>₹85</Text>
+            </TouchableOpacity>
+
+            {/* Priority Card */}
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'priority' && s.rideOptionActive]} onPress={() => handleChooseRide('priority', 160, false)}>
+              <View style={s.rideIconWrap}><Text style={s.rideIcon}>✨</Text></View>
+              <View style={s.rideTextWrap}>
+                <Text style={s.rideOptionName}>Priority</Text>
+                <Text style={s.rideOptionSub}>1 min away • Elite cars</Text>
+              </View>
+              <Text style={s.rideOptionPrice}>₹160</Text>
+            </TouchableOpacity>
+
+            {/* Mini Card */}
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'mini' && s.rideOptionActive]} onPress={() => handleChooseRide('mini', 120, true)}>
+              <View style={s.rideIconWrap}><Text style={s.rideIcon}>🚗</Text></View>
+              <View style={s.rideTextWrap}>
+                <Text style={s.rideOptionName}>Mini</Text>
+                <Text style={s.rideOptionSub}>5 min away • Standard cars</Text>
+              </View>
+              <Text style={s.rideOptionPrice}>₹120</Text>
+            </TouchableOpacity>
+
+            {/* Bike Card */}
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'bike' && s.rideOptionActive]} onPress={() => handleChooseRide('bike', 55, false)}>
+              <View style={s.rideIconWrap}><Text style={s.rideIcon}>🛵</Text></View>
+              <View style={s.rideTextWrap}>
+                <Text style={s.rideOptionName}>Bike</Text>
+                <Text style={s.rideOptionSub}>3 min away • Quickest</Text>
+              </View>
+              <Text style={s.rideOptionPrice}>₹55</Text>
+            </TouchableOpacity>
+
+          </ScrollView>
+        </View>
+      )}
+
+      {/* STEP 4: Nearby Matches */}
+      {step === 'matches' && (
+        <View style={{flex: 1}}>
+          {loadingDrivers ? (
             <ActivityIndicator size="large" color="#7C3AED" style={{marginTop: 40}} />
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 40}}>
-              {availablePools.filter(p => p.available_seats > 0).map((pool) => (
-                <TouchableOpacity 
-                  key={pool.id} 
-                  style={[s.poolCard, selectedPoolId === pool.id && s.poolCardActive]}
-                  onPress={() => {
-                     setSelectedPoolId(pool.id);
-                     setStep('confirm');
-                  }}
-                >
-                  <View style={s.poolHeader}>
-                    <Text style={s.poolTitle}>Shared Auto Pool</Text>
-                    <View style={s.seatsBadge}>
-                      <Text style={s.seatsBadgeText}>{pool.available_seats} seats left</Text>
+            <ScrollView contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 40}}>
+              <Text style={s.countLabel}>{nearbyDrivers.length} Active Drivers found</Text>
+              {nearbyDrivers.map(d => (
+                <TouchableOpacity key={d.id} style={s.driverCard} onPress={() => setStep('confirm')}>
+                  <View style={s.driverRow}>
+                    <View style={s.driverAvatar}><Text style={{fontSize: 24}}>👤</Text></View>
+                    <View style={s.driverInfo}>
+                      <Text style={s.driverName}>{d.name}</Text>
+                      <Text style={s.driverVehicle}>⭐ {d.rating} • {d.vehicle}</Text>
                     </View>
+                    <Text style={s.driverFare}>₹{d.fare}</Text>
                   </View>
-                  <Text style={s.poolRoute}>{pool.metro_station} → {pool.destination_area}</Text>
+                  <View style={s.driverDetailsRow}>
+                    <View style={s.detailBadge}><Text style={s.detailText}>⏱ Departs in {d.time}</Text></View>
+                    <View style={s.detailBadge}><Text style={s.detailText}>📍 {d.away}</Text></View>
+                  </View>
                 </TouchableOpacity>
               ))}
-
-              <View style={s.poolDivider}>
-                <View style={s.poolDividerLine} />
-                <Text style={s.poolDividerText}>OR</Text>
-                <View style={s.poolDividerLine} />
-              </View>
-
-              <TouchableOpacity 
-                style={s.newPoolCard}
-                onPress={() => {
-                   setSelectedPoolId(null);
-                   setStep('confirm');
-                }}
-              >
-                <Text style={s.newPoolTitle}>+ Start a New Pool</Text>
-                <Text style={s.newPoolSub}>Be the first to request a ride for this route</Text>
-              </TouchableOpacity>
             </ScrollView>
           )}
         </View>
@@ -398,22 +453,36 @@ const BookRideScreen: React.FC = () => {
 
           {/* Fare Breakdown */}
           <View style={s.fareCard}>
+            
+            {(vehicleType === 'auto' || vehicleType === 'mini') && (
+              <View style={s.carpoolToggleRow}>
+                <Text style={s.carpoolToggleTitle}>Carpool Option (Save {(vehicleType === 'mini' ? '40' : '30')}%)</Text>
+                <TouchableOpacity 
+                  style={[s.toggleBox, isCarpool && s.toggleBoxActive]} 
+                  onPress={() => setIsCarpool(!isCarpool)}>
+                  <Text style={[s.toggleBoxText, isCarpool && s.toggleBoxTextActive]}>
+                    {isCarpool ? 'Enabled ✓' : 'Off'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <View style={s.fareRow}>
               <Text style={s.fareItem}>Base Fare</Text>
-              <Text style={s.fareItemVal}>₹30</Text>
+              <Text style={s.fareItemVal}>₹{farePerPerson}</Text>
             </View>
-            <View style={s.fareRow}>
-              <Text style={s.fareItem}>Distance (approx.)</Text>
-              <Text style={s.fareItemVal}>₹45</Text>
-            </View>
-            <View style={s.fareRow}>
-              <Text style={s.fareItem}>Carpool Discount</Text>
-              <Text style={[s.fareItemVal, {color: '#10B981'}]}>- Shared</Text>
-            </View>
+            
+            {isCarpool && (
+              <View style={s.fareRow}>
+                <Text style={s.fareItem}>Carpool Discount</Text>
+                <Text style={[s.fareItemVal, {color: '#10B981'}]}>- ₹{Math.round(farePerPerson * (vehicleType === 'mini' ? 0.4 : 0.3))}</Text>
+              </View>
+            )}
+            
             <View style={s.fareDivider} />
             <View style={s.fareRow}>
               <Text style={s.fareTotal}>Estimated Total</Text>
-              <Text style={s.fareTotalVal}>₹{Math.round(75 / seats)} / person</Text>
+              <Text style={s.fareTotalVal}>₹{Math.round((isCarpool ? farePerPerson * (vehicleType === 'mini' ? 0.6 : 0.7) : farePerPerson) / seats)}</Text>
             </View>
           </View>
 
@@ -674,43 +743,73 @@ const s = StyleSheet.create({
   },
   bookBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
 
-  // Pools
-  poolCard: {
+  // Choose Ride Options
+  rideOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#F3F4F6',
   },
-  poolCardActive: {
+  rideOptionActive: {
     borderColor: '#7C3AED',
     backgroundColor: '#FAF5FF',
   },
-  poolHeader: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8},
-  poolTitle: {fontSize: 15, fontWeight: '700', color: '#111827'},
-  seatsBadge: {backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6},
-  seatsBadgeText: {fontSize: 11, fontWeight: '700', color: '#10B981'},
-  poolRoute: {fontSize: 13, color: '#6B7280'},
-  poolDivider: {flexDirection: 'row', alignItems: 'center', marginVertical: 16},
-  poolDividerLine: {flex: 1, height: 1, backgroundColor: '#E5E7EB'},
-  poolDividerText: {marginHorizontal: 10, fontSize: 13, fontWeight: '700', color: '#9CA3AF'},
-  newPoolCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+  rideIconWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
+    marginRight: 16,
   },
-  newPoolTitle: {fontSize: 15, fontWeight: '700', color: '#7C3AED', marginBottom: 4},
-  newPoolSub: {fontSize: 12, color: '#9CA3AF'},
+  rideIcon: {fontSize: 24},
+  rideTextWrap: {flex: 1},
+  rideOptionName: {fontSize: 16, fontWeight: '800', color: '#111827'},
+  recBadge: {backgroundColor: '#4C1D95', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8},
+  recBadgeText: {fontSize: 10, color: '#fff', fontWeight: '700'},
+  rideOptionSub: {fontSize: 12, color: '#6B7280', marginTop: 2},
+  rideOptionPrice: {fontSize: 18, fontWeight: '800', color: '#111827'},
+
+  // Driver Match Card
+  driverCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  driverRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 16},
+  driverAvatar: {width: 50, height: 50, borderRadius: 25, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginRight: 14},
+  driverInfo: {flex: 1},
+  driverName: {fontSize: 17, fontWeight: '800', color: '#111827'},
+  driverVehicle: {fontSize: 13, color: '#6B7280', marginTop: 2},
+  driverFare: {fontSize: 22, fontWeight: '800', color: '#4C1D95'},
+  driverDetailsRow: {flexDirection: 'row', gap: 10},
+  detailBadge: {backgroundColor: '#F3E8FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20},
+  detailText: {fontSize: 12, fontWeight: '700', color: '#4C1D95'},
+
+  carpoolToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3E8FF',
+  },
+  carpoolToggleTitle: {fontSize: 14, fontWeight: '700', color: '#111827'},
+  toggleBox: {paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#E5E7EB'},
+  toggleBoxActive: {backgroundColor: '#10B981'},
+  toggleBoxText: {fontSize: 13, fontWeight: '700', color: '#6B7280'},
+  toggleBoxTextActive: {color: '#fff'},
 });
 
 export default BookRideScreen;

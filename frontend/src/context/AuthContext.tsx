@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
         email: serverUser.email,
         full_name: serverUser.full_name,
         phone: serverUser.phone,
-        role: serverUser.role || 'rider',
+        role: 'rider', // Always start as rider on login
       };
 
       setUser(userData);

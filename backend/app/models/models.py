@@ -59,6 +59,7 @@ class Ride(Base):
     destination = Column(String, nullable=False)
     destination_area = Column(String, nullable=False)
     seats_needed = Column(Integer, default=1)
+    vehicle_type = Column(String, default="auto")
     fare_per_person = Column(Float, nullable=True)
     total_fare = Column(Float, nullable=True)
     available_seats = Column(Integer, default=4)

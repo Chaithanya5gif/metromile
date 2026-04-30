@@ -39,7 +39,7 @@ def register_driver(data: DriverRegister, db: Session = Depends(get_db)):
     # Auto-create user if missing
     existing_user = db.query(User).filter(User.id == data.user_id).first()
     if not existing_user:
-        new_user = User(id=data.user_id, email=f"{data.user_id}@metromile.app", full_name="Driver", role="driver")
+        new_user = User(id=data.user_id, email=f"{data.user_id}@metromile.app", full_name="Metro Driver", role="driver")
         db.add(new_user)
         try:
             db.commit()
@@ -119,7 +119,7 @@ async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db))
         "type": "ride_accepted",
         "ride_id": ride.id,
         "driver_id": driver.id,
-        "driver_name": f"Driver {driver.id}",
+        "driver_name": driver.user.full_name if driver.user and driver.user.full_name not in ["Metro Driver", "Driver"] else f"Driver {driver.id}",
         "vehicle_number": driver.vehicle_number,
         "vehicle_type": driver.vehicle_type,
         "rating": driver.rating

@@ -37,13 +37,15 @@ const ProfileScreen: React.FC = () => {
         <Text style={s.pageTitle}>Profile</Text>
 
         {/* Avatar Card */}
-        <View style={s.avatarCard}>
-          <View style={s.avatarCircle}>
-            <Text style={s.avatarEmoji}>{isDriver ? '🧔' : '👤'}</Text>
+        <View style={[s.avatarCard, isDriver ? s.driverCard : s.riderCard]}>
+          <View style={[s.avatarCircle, isDriver ? s.driverCircle : s.riderCircle]}>
+            <Text style={s.avatarEmoji}>{isDriver ? '👨‍✈️' : '🧑‍💼'}</Text>
           </View>
-          <Text style={s.userName}>{user?.full_name || 'User'}</Text>
-          <View style={s.roleBadge}>
-            <Text style={s.roleText}>{isDriver ? '🚗 Driver' : '🧑 Rider'}</Text>
+          <Text style={s.userName}>{user?.full_name && !['Rider', 'User', 'Driver', 'Metro Driver'].includes(user.full_name) ? user.full_name : 'Metro Member'}</Text>
+          <View style={[s.roleBadge, {backgroundColor: isDriver ? '#FEF3F2' : '#F3E8FF'}]}>
+            <Text style={[s.roleText, {color: isDriver ? '#B91C1C' : '#581C87'}]}>
+              {isDriver ? '🚗 Driver' : '🧑 Rider'}
+            </Text>
           </View>
         </View>
 
@@ -120,22 +122,37 @@ const s = StyleSheet.create({
     padding: 32,
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: '#581C87',
     shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 6,
   },
+  riderCard: {
+    shadowColor: '#581C87',
+    borderWidth: 1,
+    borderColor: '#F3E8FF',
+  },
+  driverCard: {
+    shadowColor: '#B91C1C',
+    borderWidth: 1,
+    borderColor: '#FEF3F2',
+  },
   avatarCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#F3E8FF',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 3,
+    borderWidth: 4,
+  },
+  riderCircle: {
+    backgroundColor: '#F3E8FF',
     borderColor: '#E9D5FF',
+  },
+  driverCircle: {
+    backgroundColor: '#FEF3F2',
+    borderColor: '#FECACA',
   },
   avatarEmoji: {fontSize: 40},
   userName: {fontSize: 24, fontWeight: '800', color: '#4B164C', marginBottom: 8},
