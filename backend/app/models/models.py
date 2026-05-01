@@ -67,6 +67,7 @@ class Ride(Base):
     scheduled_time = Column(DateTime(timezone=True), nullable=True)
     pickup_lat = Column(Float, nullable=True)
     pickup_lng = Column(Float, nullable=True)
+    is_carpool = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     rider = relationship("User", back_populates="rides", foreign_keys=[rider_id])

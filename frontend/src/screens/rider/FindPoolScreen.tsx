@@ -13,7 +13,8 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
-import {getStations, getAreas, findAvailableRides, bookRide} from '../../services/api';
+import {findAvailableRides, bookRide} from '../../services/api';
+import {LOCAL_STATIONS, LOCAL_AREAS} from '../../data/stations';
 
 const LINE_CONFIG = [
   {key: 'purple' as const, label: 'Purple', color: '#7C3AED', apiKey: 'purple_line'},
@@ -34,9 +35,8 @@ const FindPoolScreen: React.FC = () => {
 
   const [step, setStep] = useState<'station' | 'area' | 'results'>('station');
   const [line, setLine] = useState<'purple' | 'green' | 'yellow'>('purple');
-  const [stations, setStations] = useState<{purple_line: string[]; green_line: string[]; yellow_line: string[]}>({
-    purple_line: [], green_line: [], yellow_line: [],
-  });
+  // Initialise with local data immediately — no network call needed for browsing
+  const [stations, setStations] = useState<{purple_line: string[]; green_line: string[]; yellow_line: string[]}>(LOCAL_STATIONS);
   const [areas, setAreas] = useState<string[]>([]);
   const [selectedStation, setSelectedStation] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
@@ -45,12 +45,7 @@ const FindPoolScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState<number | null>(null);
 
-  // Fetch stations on mount
-  React.useEffect(() => {
-    getStations()
-      .then(res => setStations(res))
-      .catch(() => {});
-  }, []);
+
 
   const activeLineConfig = LINE_CONFIG.find(l => l.key === line)!;
   const allLineStations =
@@ -62,10 +57,9 @@ const FindPoolScreen: React.FC = () => {
   const handleStationSelect = (station: string) => {
     setSelectedStation(station);
     setSelectedArea('');
-    setAreas([]);
-    getAreas(station)
-      .then(res => setAreas(res.areas || res || []))
-      .catch(() => setAreas([]));
+    // Use local areas immediately
+    const localAreas = LOCAL_AREAS[station] || [];
+    setAreas(localAreas);
     setStep('area');
   };
 
@@ -77,7 +71,7 @@ const FindPoolScreen: React.FC = () => {
       const rides = await findAvailableRides(selectedStation, area);
       // Only show rides that have seats available (not the user's own ride)
       const open = rides.filter(
-        (r: any) => r.status === 'pending' && r.rider_id !== user?.id
+        (r: any) => r.status === 'pending' && r.rider_id !== user?.id && r.is_carpool === true
       );
       setPoolRides(open);
     } catch (_e) {

@@ -1,10 +1,7 @@
 import axios from 'axios';
-import {Platform} from 'react-native';
-
-// Android emulator: http://10.0.2.2:8000
-// iOS simulator:    http://localhost:8000
-const BASE_URL = 'http://10.0.2.2:8000';
-const BASE_WS = 'ws://10.0.2.2:8000';
+// Stable Vercel Production Backend
+const BASE_URL = 'https://backend-five-cyan-91.vercel.app';
+const BASE_WS = 'wss://backend-five-cyan-91.vercel.app';
 
 export {BASE_WS};
 
@@ -12,6 +9,8 @@ const api = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,
   headers: {'Content-Type': 'application/json'},
+  // Follow redirects automatically (avoids 307 issues on Android)
+  maxRedirects: 5,
 });
 
 // ─── AUTH ────────────────────────────────────────────────────────────────
@@ -41,10 +40,10 @@ export const updateUserRole = (userId: string, role: string) =>
   api.put(`/users/${userId}/role?role=${role}`).then(r => r.data);
 
 // ─── RIDES ────────────────────────────────────────────────────────────────
-export const getStations = () => api.get('/rides/stations/').then(r => r.data);
+export const getStations = () => api.get('/rides/stations').then(r => r.data);
 
 export const getAreas = (station: string) =>
-  api.get(`/rides/areas/${encodeURIComponent(station)}/`).then(r => r.data);
+  api.get(`/rides/areas/${encodeURIComponent(station)}`).then(r => r.data);
 
 export const createRide = (data: {
   rider_id: string;
@@ -55,7 +54,8 @@ export const createRide = (data: {
   scheduled_time?: string;
   vehicle_type?: string;
   fare_per_person?: number;
-}) => api.post('/rides/', data).then(r => r.data);
+  is_carpool?: boolean;
+}) => api.post('/rides', data).then(r => r.data);
 
 export const getRide = (rideId: string | number) =>
   api.get(`/rides/${rideId}`).then(r => r.data);
@@ -70,7 +70,7 @@ export const bookRide = (rideId: number, riderId: string, seats: number, pickup_
   api.post('/rides/book', {ride_id: rideId, rider_id: riderId, seats, pickup_station, drop_station}).then(r => r.data);
 
 export const findAvailableRides = (station: string, area: string) =>
-  api.get(`/rides/?station=${encodeURIComponent(station)}&area=${encodeURIComponent(area)}`).then(r => r.data);
+  api.get(`/rides?station=${encodeURIComponent(station)}&area=${encodeURIComponent(area)}`).then(r => r.data);
 
 // ─── MATCHING ─────────────────────────────────────────────────────────────
 export const findMatches = (station: string, area: string) =>

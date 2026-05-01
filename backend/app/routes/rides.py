@@ -131,6 +131,7 @@ class RideCreate(BaseModel):
     scheduled_time: Optional[datetime] = None
     pickup_lat: Optional[float] = None
     pickup_lng: Optional[float] = None
+    is_carpool: Optional[bool] = False
 
 class RideResponse(BaseModel):
     id: int
@@ -143,6 +144,7 @@ class RideResponse(BaseModel):
     fare_per_person: Optional[float]
     status: str
     created_at: datetime
+    is_carpool: Optional[bool] = False
     class Config:
         from_attributes = True
 
@@ -182,7 +184,8 @@ def create_ride(ride: RideCreate, db: Session = Depends(get_db)):
             seats_needed=ride.seats_needed, scheduled_time=ride.scheduled_time,
             pickup_lat=ride.pickup_lat, pickup_lng=ride.pickup_lng,
             vehicle_type=ride.vehicle_type,
-            fare_per_person=ride.fare_per_person
+            fare_per_person=ride.fare_per_person,
+            is_carpool=ride.is_carpool
         )
         db.add(new_ride)
         db.commit()

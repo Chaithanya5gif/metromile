@@ -60,6 +60,14 @@ try:
         print("drop_station already exists.")
     except Exception as e:
         print(f"Error adding drop_station: {e}")
+
+    try:
+        cursor.execute("ALTER TABLE rides ADD COLUMN is_carpool BOOLEAN DEFAULT FALSE;")
+        print("Added is_carpool to rides.")
+    except psycopg2.errors.DuplicateColumn:
+        print("is_carpool already exists.")
+    except Exception as e:
+        print(f"Error adding is_carpool: {e}")
         
     try:
         cursor.execute("ALTER TABLE bookings ADD COLUMN status VARCHAR DEFAULT 'confirmed';")

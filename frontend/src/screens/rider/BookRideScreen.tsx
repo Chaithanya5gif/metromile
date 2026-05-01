@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
-import {getStations, getAreas, createRide, findAvailableRides, bookRide} from '../../services/api';
+import {createRide} from '../../services/api';
+import {LOCAL_STATIONS, LOCAL_AREAS} from '../../data/stations';
 
 const LINE_CONFIG = [
   {key: 'purple' as const, label: 'Purple', color: '#7C3AED', bg: '#F5F3FF', apiKey: 'purple_line'},
@@ -26,11 +27,8 @@ const BookRideScreen: React.FC = () => {
   const navigation = useNavigation<any>();
 
   const [line, setLine] = useState<'purple' | 'green' | 'yellow'>('purple');
-  const [stations, setStations] = useState<{purple_line: string[]; green_line: string[]; yellow_line: string[]}>({
-    purple_line: [],
-    green_line: [],
-    yellow_line: [],
-  });
+  // Start with local data immediately — no loading, no error
+  const [stations, setStations] = useState<{purple_line: string[]; green_line: string[]; yellow_line: string[]}>(LOCAL_STATIONS);
   const [areas, setAreas] = useState<string[]>([]);
   const [selectedStation, setSelectedStation] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
@@ -44,43 +42,7 @@ const BookRideScreen: React.FC = () => {
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
 
-  const getDynamicDrivers = (type: string, baseFare: number) => {
-    const vehicles = {
-      auto: ['Bajaj RE CNG', 'Piaggio Ape City', 'Mahindra Treo'],
-      mini: ['Tata Tiago CNG', 'Maruti Celerio', 'Hyundai i10'],
-      priority: ['Toyota Innova', 'Honda City', 'Kia Seltos'],
-      bike: ['Ather 450X ⚡', 'Ola S1 Pro ⚡', 'TVS iQube ⚡']
-    };
-    
-    const vList = vehicles[type as keyof typeof vehicles] || vehicles.auto;
-    
-    return [
-      { id: 101, name: 'Elena Rodriguez', rating: 4.9, vehicle: vList[0], away: '0.4 km away', time: '2 min', fare: baseFare },
-      { id: 102, name: 'Marcus Chen', rating: 5.0, vehicle: vList[1], away: '1.2 km away', time: '5 min', fare: baseFare },
-      { id: 103, name: 'Vikram Singh', rating: 4.7, vehicle: vList[2], away: '1.8 km away', time: '8 min', fare: baseFare }
-    ];
-  };
 
-  const fetchStations = useCallback(() => {
-    console.log('FETCHING STATIONS...');
-    getStations()
-      .then(res => {
-        console.log('STATIONS LOADED:', Object.keys(res));
-        setStations(res);
-      })
-      .catch(err => {
-        console.error('STATIONS ERROR:', err.message || err);
-        Alert.alert(
-          'Connection Error', 
-          'Failed to fetch metro stations. Please check your internet.',
-          [{ text: 'Retry', onPress: fetchStations }]
-        );
-      });
-  }, []);
-
-  useEffect(() => {
-    fetchStations();
-  }, [fetchStations]);
 
   const activeLineConfig = LINE_CONFIG.find(l => l.key === line)!;
   const allLineStations =
@@ -90,27 +52,34 @@ const BookRideScreen: React.FC = () => {
     ? allLineStations.filter(s => s.toLowerCase().includes(stationSearch.toLowerCase()))
     : allLineStations;
 
-  useEffect(() => {
-    if (selectedStation) {
-      getAreas(selectedStation)
-        .then(res => {
-          setAreas(res.areas || res || []);
-          setSelectedArea('');
-        })
-        .catch(() => setAreas([]));
-    } else {
-      setAreas([]);
-    }
-  }, [selectedStation]);
 
   const handleStationSelect = (station: string) => {
     setSelectedStation(station);
+    // Use local areas instantly, then refresh from API silently
+    const localAreas = LOCAL_AREAS[station] || [];
+    setAreas(localAreas);
+    setSelectedArea('');
     setStep('area');
   };
 
   const handleAreaSelect = async (area: string) => {
     setSelectedArea(area);
     setStep('choose');
+  };
+
+  const getDynamicDrivers = (type: string, baseFare: number) => {
+    const vehicles = {
+      auto: ['Bajaj RE CNG', 'Piaggio Ape City', 'Mahindra Treo'],
+      mini: ['Tata Tiago CNG', 'Maruti Celerio', 'Hyundai i10'],
+      priority: ['Toyota Innova', 'Honda City', 'Kia Seltos'],
+      bike: ['Ather 450X ⚡', 'Ola S1 Pro ⚡', 'TVS iQube ⚡'],
+    };
+    const vList = vehicles[type as keyof typeof vehicles] || vehicles.auto;
+    return [
+      {id: 101, name: 'Elena Rodriguez', rating: 4.9, vehicle: vList[0], away: '0.4 km away', time: '2 min', fare: baseFare},
+      {id: 102, name: 'Marcus Chen', rating: 5.0, vehicle: vList[1], away: '1.2 km away', time: '5 min', fare: baseFare},
+      {id: 103, name: 'Vikram Singh', rating: 4.7, vehicle: vList[2], away: '1.8 km away', time: '8 min', fare: baseFare},
+    ];
   };
 
   const handleChooseRide = (type: 'auto' | 'mini' | 'priority' | 'bike', fare: number, allowCarpool: boolean) => {
@@ -154,7 +123,8 @@ const BookRideScreen: React.FC = () => {
           exact_destination: selectedArea,
           seats_needed: seats,
           vehicle_type: vehicleType,
-          fare_per_person: Math.round((isCarpool ? farePerPerson * (vehicleType === 'mini' ? 0.6 : 0.7) : farePerPerson) / seats)
+          fare_per_person: Math.round((isCarpool ? farePerPerson * (vehicleType === 'mini' ? 0.6 : 0.7) : farePerPerson) / seats),
+          is_carpool: isCarpool
         });
         Alert.alert('🎉 Booked!', `Ride created from ${selectedStation} to ${selectedArea}.`, [
           {
@@ -430,7 +400,7 @@ const BookRideScreen: React.FC = () => {
             </View>
             <View style={{flex: 1, marginLeft: 16}}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Text style={s.poolCardTitle}>Join a Pool</Text>
+                <Text style={s.poolCardTitle}>Start a Pool</Text>
                 <View style={s.saveBadge}>
                   <Text style={s.saveBadgeText}>Save {vehicleType === 'mini' ? '40' : '30'}%</Text>
                 </View>
