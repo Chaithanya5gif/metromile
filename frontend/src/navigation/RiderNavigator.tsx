@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import HomeScreen from '../screens/rider/HomeScreen';
 import BookRideScreen from '../screens/rider/BookRideScreen';
+import FindPoolScreen from '../screens/rider/FindPoolScreen';
 import TrackRideScreen from '../screens/rider/TrackRideScreen';
 import PaymentScreen from '../screens/rider/PaymentScreen';
 import RatingScreen from '../screens/rider/RatingScreen';
@@ -93,6 +94,7 @@ const RiderNavigator: React.FC = () => (
   <Stack.Navigator screenOptions={{headerShown: false}}>
     <Stack.Screen name="RiderTabs" component={RiderTabs} />
     <Stack.Screen name="BookRide" component={BookRideScreen} />
+    <Stack.Screen name="FindPool" component={FindPoolScreen} />
     <Stack.Screen name="Payment" component={PaymentScreen} />
     <Stack.Screen name="Rating" component={RatingScreen} />
   </Stack.Navigator>

@@ -59,7 +59,9 @@ const LoginScreen: React.FC = () => {
             style={s.webview}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+            userAgent="Mozilla/5.0 (Linux; Android 10; Android Ticket) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+            javaScriptCanOpenWindowsAutomatically={true}
+            incognito={false}
             mixedContentMode="always"
             onError={(e) => {
               Alert.alert('Connection Error', 'Ensure the Vite dev server is running on port 5173');

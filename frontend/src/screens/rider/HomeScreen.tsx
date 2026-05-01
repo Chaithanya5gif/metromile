@@ -127,6 +127,19 @@ const HomeScreen: React.FC = () => {
           <Text style={s.ctaArrow}>→</Text>
         </TouchableOpacity>
 
+        {/* Find Pool CTA */}
+        <TouchableOpacity
+          style={s.poolCtaCard}
+          onPress={() => navigation.navigate('FindPool')}
+          activeOpacity={0.85}>
+          <Text style={s.ctaIcon}>🤝</Text>
+          <View style={s.ctaText}>
+            <Text style={s.ctaTitle}>Join an Open Pool</Text>
+            <Text style={[s.ctaSub, {color: '#A7F3D0'}]}>Browse live rides & save money</Text>
+          </View>
+          <Text style={s.ctaArrow}>→</Text>
+        </TouchableOpacity>
+
         {/* Recent Rides */}
         <Text style={s.sectionTitle}>Recent Rides</Text>
         {loading ? (
@@ -195,10 +208,24 @@ const s = StyleSheet.create({
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
     shadowColor: '#581C87',
     shadowOffset: {width: 0, height: 6},
     shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  poolCtaCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#059669',
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#059669',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 8,
   },

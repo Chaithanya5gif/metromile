@@ -3,8 +3,8 @@ import {Platform} from 'react-native';
 
 // Android emulator: http://10.0.2.2:8000
 // iOS simulator:    http://localhost:8000
-const BASE_URL = 'https://backend-five-cyan-91.vercel.app';
-const BASE_WS = 'wss://backend-five-cyan-91.vercel.app';
+const BASE_URL = 'http://10.0.2.2:8000';
+const BASE_WS = 'ws://10.0.2.2:8000';
 
 export {BASE_WS};
 

@@ -47,21 +47,26 @@ const OSMMap: React.FC<OSMMapProps> = ({
     const tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
     const markersJS = markers
-      .map(
-        (m, idx) => `
+      .map((m, idx) => {
+        const isDriver = m.label === 'DRIVER' || m.title === 'Driver';
+        const driverClasses = isDriver ? 'driver-pin driver-inner' : '';
+        const labelHtml = m.label ? `<div class="marker-label">${m.label}</div>` : '';
+        const popupHtml = m.title ? `.bindPopup('${m.title}')` : '';
+        
+        return `
       var marker_${idx} = L.marker([${m.lat}, ${m.lng}], {
         icon: L.divIcon({
           className: 'custom-marker',
-          html: '<div class="marker-pin"><span class="marker-emoji">${m.emoji || '📍'}</span></div>${m.label ? `<div class="marker-label">${m.label}</div>` : ''}',
+          html: '<div class="marker-pin ${driverClasses}"><span class="marker-emoji">${m.emoji || '📍'}</span></div>${labelHtml}',
           iconSize: [44, 60],
           iconAnchor: [22, 50],
         })
-      }).addTo(map)${m.title ? `.bindPopup('${m.title}')` : ''};
-      if ('${m.label}' === 'DRIVER' || '${m.title}' === 'Driver') {
+      }).addTo(map)${popupHtml};
+      if (${isDriver}) {
         window.driverMarker = marker_${idx};
       }
-    `,
-      )
+    `;
+      })
       .join('\n');
 
     const routeJS =
@@ -123,8 +128,12 @@ const OSMMap: React.FC<OSMMapProps> = ({
       background: #FFFFFF;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-      border: 3px solid #10b981;
+      border: 3px solid #10b981; /* Standard green for other markers */
       margin: 0 auto;
+    }
+    .driver-pin {
+      border: 3px solid #39FF14; /* Neon green for the driver */
+      box-shadow: 0 0 10px #39FF14;
     }
     .marker-emoji { font-size: 22px; line-height: 1; }
     .marker-label {
@@ -133,6 +142,9 @@ const OSMMap: React.FC<OSMMapProps> = ({
       border-radius: 4px; margin-top: 3px;
       text-align: center; letter-spacing: 0.5px;
       white-space: nowrap;
+    }
+    .driver-inner {
+      transition: transform 0.5s ease-out;
     }
     .leaflet-control-attribution { font-size: 8px !important; opacity: 0.6; }
     ${darkMode ? `
@@ -153,6 +165,9 @@ const OSMMap: React.FC<OSMMapProps> = ({
       console.error = function(...args) {
         window.ReactNativeWebView.postMessage(JSON.stringify({type: 'error', message: args.join(' ')}));
         originalConsoleError.apply(console, args);
+      };
+      window.onerror = function(message, source, lineno, colno, error) {
+        console.error("Global JS Error: ", message, " at line ", lineno);
       };
 
       console.log("OSMMap WebView starting script execution");
@@ -185,22 +200,83 @@ const OSMMap: React.FC<OSMMapProps> = ({
         // Expose function to update map from RN
         window.updateCenter = function(lat, lng) {
           if (!map) return;
-          map.setView([lat, lng], map.getZoom(), {animate: true});
+          map.setView([lat, lng], map.getZoom(), {animate: true, duration: 1.5});
         };
+
+        function getBearing(lat1, lon1, lat2, lon2) {
+          var dLon = (lon2 - lon1) * Math.PI / 180;
+          var l1 = lat1 * Math.PI / 180;
+          var l2 = lat2 * Math.PI / 180;
+          var y = Math.sin(dLon) * Math.cos(l2);
+          var x = Math.cos(l1) * Math.sin(l2) - Math.sin(l1) * Math.cos(l2) * Math.cos(dLon);
+          var brng = Math.atan2(y, x);
+          return ((brng * 180 / Math.PI) + 360) % 360;
+        }
 
         window.updateDriverMarker = function(lat, lng) {
           if (window.driverMarker) {
-            window.driverMarker.setLatLng([lat, lng]);
+            var oldLatLng = window.driverMarker.getLatLng();
+            var newLatLng = L.latLng(lat, lng);
+            
+            // Only animate if distance is significant (> 0.5 meters)
+            if (map.distance(oldLatLng, newLatLng) > 0.5) {
+                var bearing = getBearing(oldLatLng.lat, oldLatLng.lng, lat, lng);
+                var innerEl = window.driverMarker.getElement() ? window.driverMarker.getElement().querySelector('.driver-inner') : null;
+                
+                if (innerEl && !isNaN(bearing)) {
+                    innerEl.style.transform = 'rotate(' + bearing + 'deg)';
+                }
+                
+                var startLat = oldLatLng.lat;
+                var startLng = oldLatLng.lng;
+                var startTime = performance.now();
+                var duration = 1500; // 1.5s animation
+                
+                if (window.driverMarker._animId) cancelAnimationFrame(window.driverMarker._animId);
+                
+                function step(currentTime) {
+                    var elapsed = currentTime - startTime;
+                    var progress = Math.min(elapsed / duration, 1);
+                    // easeInOutQuad
+                    var easeProgress = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                    
+                    var currentLat = startLat + (lat - startLat) * easeProgress;
+                    var currentLng = startLng + (lng - startLng) * easeProgress;
+                    
+                    window.driverMarker.setLatLng([currentLat, currentLng]);
+                    
+                    if (progress < 1) {
+                        window.driverMarker._animId = requestAnimationFrame(step);
+                    }
+                }
+                window.driverMarker._animId = requestAnimationFrame(step);
+            } else {
+                window.driverMarker.setLatLng([lat, lng]);
+            }
           }
         };
 
         window.addRoutePoint = function(lat, lng) {
           if (!map) return;
           if (!window._routeCoords) window._routeCoords = [];
+          
+          var lastPoint = window._routeCoords[window._routeCoords.length - 1];
+          if (lastPoint && lastPoint[0] === lat && lastPoint[1] === lng) return;
+          
           window._routeCoords.push([lat, lng]);
           if (window._routeLine) map.removeLayer(window._routeLine);
+          
+          // Electric Blue inner line
           window._routeLine = L.polyline(window._routeCoords, {
-            color: '#000000', weight: 5, opacity: 0.9,
+            color: '#00d4ff', weight: 6, opacity: 1, smoothFactor: 1.5,
+            lineCap: 'round', lineJoin: 'round'
+          }).addTo(map);
+          
+          // Add a glowing outer line to simulate neon effect
+          if (window._routeGlow) map.removeLayer(window._routeGlow);
+          window._routeGlow = L.polyline(window._routeCoords, {
+            color: '#3b82f6', weight: 12, opacity: 0.4, smoothFactor: 1.5,
+            lineCap: 'round', lineJoin: 'round'
           }).addTo(map);
         };
       }
@@ -239,7 +315,7 @@ const OSMMap: React.FC<OSMMapProps> = ({
         showsVerticalScrollIndicator={false}
         mixedContentMode="always"
         originWhitelist={['*']}
-        androidLayerType="software"
+        androidLayerType="hardware"
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);

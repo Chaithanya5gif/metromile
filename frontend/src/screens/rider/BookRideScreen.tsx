@@ -37,7 +37,7 @@ const BookRideScreen: React.FC = () => {
   const [seats, setSeats] = useState(1);
   const [booking, setBooking] = useState(false);
   const [stationSearch, setStationSearch] = useState('');
-  const [step, setStep] = useState<'station' | 'area' | 'choose' | 'matches' | 'confirm'>('station');
+  const [step, setStep] = useState<'station' | 'area' | 'choose' | 'poolchoice' | 'matches' | 'confirm'>('station');
   const [vehicleType, setVehicleType] = useState<'auto' | 'mini' | 'priority' | 'bike'>('auto');
   const [isCarpool, setIsCarpool] = useState(false);
   const [farePerPerson, setFarePerPerson] = useState(85);
@@ -46,10 +46,10 @@ const BookRideScreen: React.FC = () => {
 
   const getDynamicDrivers = (type: string, baseFare: number) => {
     const vehicles = {
-      auto: ['Bajaj RE', 'Piaggio Ape', 'Mahindra Treo'],
-      mini: ['Tata Tiago', 'Maruti Swift', 'Hyundai i10'],
+      auto: ['Bajaj RE CNG', 'Piaggio Ape City', 'Mahindra Treo'],
+      mini: ['Tata Tiago CNG', 'Maruti Celerio', 'Hyundai i10'],
       priority: ['Toyota Innova', 'Honda City', 'Kia Seltos'],
-      bike: ['Honda Activa', 'TVS Jupiter', 'Bajaj Pulsar']
+      bike: ['Ather 450X ⚡', 'Ola S1 Pro ⚡', 'TVS iQube ⚡']
     };
     
     const vList = vehicles[type as keyof typeof vehicles] || vehicles.auto;
@@ -116,13 +116,28 @@ const BookRideScreen: React.FC = () => {
   const handleChooseRide = (type: 'auto' | 'mini' | 'priority' | 'bike', fare: number, allowCarpool: boolean) => {
     setVehicleType(type);
     setFarePerPerson(fare);
-    setIsCarpool(allowCarpool); // Just as a default, they could toggle later
-    
-    // Move to matching screen
+    setIsCarpool(false);
+
+    if (allowCarpool) {
+      // Show pool/solo choice screen first
+      setStep('poolchoice');
+    } else {
+      // No carpool for priority/bike — go straight to matches
+      setLoadingDrivers(true);
+      setStep('matches');
+      setTimeout(() => {
+        setNearbyDrivers(getDynamicDrivers(type, fare));
+        setLoadingDrivers(false);
+      }, 1500);
+    }
+  };
+
+  const handlePoolChoice = (wantsPool: boolean) => {
+    setIsCarpool(wantsPool);
     setLoadingDrivers(true);
     setStep('matches');
     setTimeout(() => {
-      setNearbyDrivers(getDynamicDrivers(type, fare));
+      setNearbyDrivers(getDynamicDrivers(vehicleType, farePerPerson));
       setLoadingDrivers(false);
     }, 1500);
   };
@@ -164,6 +179,13 @@ const BookRideScreen: React.FC = () => {
     if (step === 'confirm') {
       setStep('matches');
     } else if (step === 'matches') {
+      // Go back to pool choice if the vehicle supports carpool, else choose
+      if (vehicleType === 'auto' || vehicleType === 'mini') {
+        setStep('poolchoice');
+      } else {
+        setStep('choose');
+      }
+    } else if (step === 'poolchoice') {
       setStep('choose');
     } else if (step === 'choose') {
       setStep('area');
@@ -184,7 +206,7 @@ const BookRideScreen: React.FC = () => {
           <Text style={s.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>
-          {step === 'station' ? 'Select Metro Station' : step === 'area' ? 'Select Destination' : step === 'choose' ? 'Choose a Ride' : step === 'matches' ? 'Nearby Matches' : 'Confirm Ride'}
+          {step === 'station' ? 'Select Metro Station' : step === 'area' ? 'Select Destination' : step === 'choose' ? 'Choose a Ride' : step === 'poolchoice' ? 'Ride Mode' : step === 'matches' ? 'Nearby Matches' : 'Confirm Ride'}
         </Text>
         <View style={{width: 50}} />
       </View>
@@ -323,7 +345,7 @@ const BookRideScreen: React.FC = () => {
           <ScrollView contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 40}}>
             
             {/* Auto Card */}
-            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'auto' && s.rideOptionActive]} onPress={() => handleChooseRide('auto', 85, true)}>
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'auto' && s.rideOptionActive]} onPress={() => handleChooseRide('auto', 72, true)}>
               <View style={s.rideIconWrap}><Text style={s.rideIcon}>🛺</Text></View>
               <View style={s.rideTextWrap}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -332,40 +354,96 @@ const BookRideScreen: React.FC = () => {
                 </View>
                 <Text style={s.rideOptionSub}>2 min away • Pocket friendly</Text>
               </View>
-              <Text style={s.rideOptionPrice}>₹85</Text>
-            </TouchableOpacity>
-
-            {/* Priority Card */}
-            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'priority' && s.rideOptionActive]} onPress={() => handleChooseRide('priority', 160, false)}>
-              <View style={s.rideIconWrap}><Text style={s.rideIcon}>✨</Text></View>
-              <View style={s.rideTextWrap}>
-                <Text style={s.rideOptionName}>Priority</Text>
-                <Text style={s.rideOptionSub}>1 min away • Elite cars</Text>
-              </View>
-              <Text style={s.rideOptionPrice}>₹160</Text>
+              <Text style={s.rideOptionPrice}>₹72</Text>
             </TouchableOpacity>
 
             {/* Mini Card */}
-            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'mini' && s.rideOptionActive]} onPress={() => handleChooseRide('mini', 120, true)}>
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'mini' && s.rideOptionActive]} onPress={() => handleChooseRide('mini', 105, true)}>
               <View style={s.rideIconWrap}><Text style={s.rideIcon}>🚗</Text></View>
               <View style={s.rideTextWrap}>
                 <Text style={s.rideOptionName}>Mini</Text>
                 <Text style={s.rideOptionSub}>5 min away • Standard cars</Text>
               </View>
-              <Text style={s.rideOptionPrice}>₹120</Text>
+              <Text style={s.rideOptionPrice}>₹105</Text>
             </TouchableOpacity>
 
-            {/* Bike Card */}
-            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'bike' && s.rideOptionActive]} onPress={() => handleChooseRide('bike', 55, false)}>
-              <View style={s.rideIconWrap}><Text style={s.rideIcon}>🛵</Text></View>
+            {/* Priority Card */}
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'priority' && s.rideOptionActive]} onPress={() => handleChooseRide('priority', 145, false)}>
+              <View style={s.rideIconWrap}><Text style={s.rideIcon}>✨</Text></View>
               <View style={s.rideTextWrap}>
-                <Text style={s.rideOptionName}>Bike</Text>
-                <Text style={s.rideOptionSub}>3 min away • Quickest</Text>
+                <Text style={s.rideOptionName}>Priority</Text>
+                <Text style={s.rideOptionSub}>1 min away • Elite cars</Text>
               </View>
-              <Text style={s.rideOptionPrice}>₹55</Text>
+              <Text style={s.rideOptionPrice}>₹145</Text>
+            </TouchableOpacity>
+
+            {/* Electric Scooty Card */}
+            <TouchableOpacity style={[s.rideOptionCard, vehicleType === 'bike' && s.rideOptionActive]} onPress={() => handleChooseRide('bike', 40, false)}>
+              <View style={[s.rideIconWrap, {backgroundColor: '#D1FAE5'}]}><Text style={s.rideIcon}>🛵</Text></View>
+              <View style={s.rideTextWrap}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Text style={s.rideOptionName}>E-Scooty</Text>
+                  <View style={[s.recBadge, {backgroundColor: '#059669'}]}><Text style={s.recBadgeText}>⚡ Electric</Text></View>
+                </View>
+                <Text style={s.rideOptionSub}>3 min away • Zero emissions</Text>
+              </View>
+              <Text style={[s.rideOptionPrice, {color: '#059669'}]}>₹40</Text>
             </TouchableOpacity>
 
           </ScrollView>
+        </View>
+      )}
+
+      {/* STEP 3b: Pool or Solo Choice */}
+      {step === 'poolchoice' && (
+        <View style={{flex: 1, paddingHorizontal: 16, paddingTop: 8}}>
+          <Text style={s.stepTitle}>How would you like to ride?</Text>
+          <Text style={[s.stepTitle, {fontSize: 13, color: '#6B7280', fontWeight: '400', marginTop: -8, marginBottom: 20}]}>
+            Choose between a private solo ride or share with others and save.
+          </Text>
+
+          {/* Solo Option */}
+          <TouchableOpacity
+            style={s.poolCard}
+            onPress={() => handlePoolChoice(false)}
+            activeOpacity={0.85}>
+            <View style={s.poolIconCircle}>
+              <Text style={{fontSize: 32}}>🧍</Text>
+            </View>
+            <View style={{flex: 1, marginLeft: 16}}>
+              <Text style={s.poolCardTitle}>Solo Ride</Text>
+              <Text style={s.poolCardSub}>Private ride, just for you</Text>
+              <View style={s.poolPriceBadge}>
+                <Text style={s.poolPriceText}>₹{farePerPerson}</Text>
+              </View>
+            </View>
+            <Text style={{fontSize: 22, color: '#D1D5DB'}}>→</Text>
+          </TouchableOpacity>
+
+          {/* Pool Option */}
+          <TouchableOpacity
+            style={[s.poolCard, s.poolCardHighlight]}
+            onPress={() => handlePoolChoice(true)}
+            activeOpacity={0.85}>
+            <View style={[s.poolIconCircle, {backgroundColor: '#D1FAE5'}]}>
+              <Text style={{fontSize: 32}}>🧑‍🤝‍🧑</Text>
+            </View>
+            <View style={{flex: 1, marginLeft: 16}}>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Text style={s.poolCardTitle}>Join a Pool</Text>
+                <View style={s.saveBadge}>
+                  <Text style={s.saveBadgeText}>Save {vehicleType === 'mini' ? '40' : '30'}%</Text>
+                </View>
+              </View>
+              <Text style={s.poolCardSub}>Share ride, share costs</Text>
+              <View style={[s.poolPriceBadge, {backgroundColor: '#D1FAE5'}]}>
+                <Text style={[s.poolPriceText, {color: '#059669'}]}>
+                  ₹{Math.round(farePerPerson * (vehicleType === 'mini' ? 0.6 : 0.7))}
+                </Text>
+              </View>
+            </View>
+            <Text style={{fontSize: 22, color: '#10B981'}}>→</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -810,6 +888,53 @@ const s = StyleSheet.create({
   toggleBoxActive: {backgroundColor: '#10B981'},
   toggleBoxText: {fontSize: 13, fontWeight: '700', color: '#6B7280'},
   toggleBoxTextActive: {color: '#fff'},
+
+  // Pool / Solo Choice
+  poolCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 14,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  poolCardHighlight: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  poolIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  poolCardTitle: {fontSize: 18, fontWeight: '800', color: '#111827'},
+  poolCardSub: {fontSize: 13, color: '#6B7280', marginTop: 2},
+  poolPriceBadge: {
+    marginTop: 8,
+    backgroundColor: '#F3E8FF',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  poolPriceText: {fontSize: 15, fontWeight: '800', color: '#7C3AED'},
+  saveBadge: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  saveBadgeText: {fontSize: 10, color: '#fff', fontWeight: '800'},
 });
 
 export default BookRideScreen;
