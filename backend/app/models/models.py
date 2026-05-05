@@ -94,6 +94,7 @@ class Driver(Base):
     - Real-time GPS location tracking (current_lat, current_lng)
     - Availability status (is_available, is_busy)
     - Performance metrics (rating, total_rides, total_earnings)
+    - Verification system (license, documents, approval status)
     """
     __tablename__ = "drivers"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -107,6 +108,16 @@ class Driver(Base):
     total_earnings = Column(Float, default=0.0)    # Lifetime earnings
     rating = Column(Float, default=5.0)            # Average rating (1-5)
     total_rides = Column(Integer, default=0)       # Completed rides count
+    
+    # Verification fields (MVP: optional, Production: required)
+    license_number = Column(String, nullable=True)        # Driving license number
+    license_verified = Column(Boolean, default=False)     # License verification status
+    vehicle_rc_number = Column(String, nullable=True)     # Vehicle registration
+    aadhar_number = Column(String, nullable=True)         # Aadhar for KYC
+    verification_status = Column(String, default="pending")  # pending, verified, rejected
+    verified_at = Column(DateTime(timezone=True), nullable=True)  # Verification timestamp
+    verification_notes = Column(Text, nullable=True)      # Admin notes
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

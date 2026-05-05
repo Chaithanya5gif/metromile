@@ -13,6 +13,10 @@ class DriverRegister(BaseModel):
     user_id: str
     vehicle_number: str
     vehicle_type: Optional[str] = "auto"
+    # Optional verification fields
+    license_number: Optional[str] = None
+    vehicle_rc_number: Optional[str] = None
+    aadhar_number: Optional[str] = None
 
 class DriverResponse(BaseModel):
     id: int
@@ -23,12 +27,22 @@ class DriverResponse(BaseModel):
     total_earnings: float
     rating: float
     total_rides: int
+    # Verification fields
+    license_number: Optional[str] = None
+    license_verified: bool = False
+    verification_status: str = "pending"
     class Config:
         from_attributes = True
 
 class LocationUpdate(BaseModel):
     lat: float
     lng: float
+
+class VerificationUpdate(BaseModel):
+    """Schema for updating driver verification details"""
+    license_number: Optional[str] = None
+    vehicle_rc_number: Optional[str] = None
+    aadhar_number: Optional[str] = None
 
 @router.post("/register", response_model=DriverResponse)
 def register_driver(data: DriverRegister, db: Session = Depends(get_db)):
@@ -46,7 +60,15 @@ def register_driver(data: DriverRegister, db: Session = Depends(get_db)):
         except:
             db.rollback()
 
-    driver = Driver(user_id=data.user_id, vehicle_number=data.vehicle_number, vehicle_type=data.vehicle_type)
+    driver = Driver(
+        user_id=data.user_id, 
+        vehicle_number=data.vehicle_number, 
+        vehicle_type=data.vehicle_type,
+        license_number=data.license_number,
+        vehicle_rc_number=data.vehicle_rc_number,
+        aadhar_number=data.aadhar_number,
+        verification_status="pending" if data.license_number else "unverified"
+    )
     db.add(driver)
     db.commit()
     db.refresh(driver)
@@ -154,3 +176,91 @@ async def driver_complete_ride(user_id: str, ride_id: int, db: Session = Depends
     })
 
     return {"message": "Ride completed!"}
+
+# ============================================
+# DRIVER VERIFICATION ENDPOINTS (NEW)
+# ============================================
+
+@router.put("/{user_id}/verification")
+def update_verification(user_id: str, data: VerificationUpdate, db: Session = Depends(get_db)):
+    """
+    Update driver verification details
+    Allows drivers to submit license, RC, and Aadhar for verification
+    """
+    driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    
+    # Update verification fields if provided
+    if data.license_number:
+        driver.license_number = data.license_number
+    if data.vehicle_rc_number:
+        driver.vehicle_rc_number = data.vehicle_rc_number
+    if data.aadhar_number:
+        driver.aadhar_number = data.aadhar_number
+    
+    # Set status to pending if any verification data provided
+    if data.license_number or data.vehicle_rc_number or data.aadhar_number:
+        driver.verification_status = "pending"
+    
+    db.commit()
+    db.refresh(driver)
+    return {
+        "message": "Verification details updated",
+        "verification_status": driver.verification_status,
+        "license_verified": driver.license_verified
+    }
+
+@router.get("/{user_id}/verification")
+def get_verification_status(user_id: str, db: Session = Depends(get_db)):
+    """
+    Get driver verification status
+    Returns verification details and status
+    """
+    driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    
+    return {
+        "verification_status": driver.verification_status,
+        "license_verified": driver.license_verified,
+        "has_license": driver.license_number is not None,
+        "has_rc": driver.vehicle_rc_number is not None,
+        "has_aadhar": driver.aadhar_number is not None,
+        "verified_at": driver.verified_at
+    }
+
+@router.put("/admin/verify/{driver_id}")
+def admin_verify_driver(
+    driver_id: int, 
+    approved: bool, 
+    notes: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to approve/reject driver verification
+    In production, this would require admin authentication
+    """
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    
+    if approved:
+        driver.verification_status = "verified"
+        driver.license_verified = True
+        driver.verified_at = datetime.utcnow()
+    else:
+        driver.verification_status = "rejected"
+        driver.license_verified = False
+    
+    if notes:
+        driver.verification_notes = notes
+    
+    db.commit()
+    db.refresh(driver)
+    
+    return {
+        "message": f"Driver {'verified' if approved else 'rejected'}",
+        "driver_id": driver.id,
+        "verification_status": driver.verification_status
+    }
