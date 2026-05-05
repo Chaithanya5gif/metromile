@@ -28,12 +28,12 @@ const ActiveRideScreen: React.FC = () => {
   const {user} = useAuth();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const {rideId, riderId} = route.params || {};
+  const {rideId, riderId, otp} = route.params || {};
 
   const [driver, setDriver] = useState<any>(null);
   const [driverLoc, setDriverLoc] = useState({lat: 12.9716, lng: 77.5946});
   const [completing, setCompleting] = useState(false);
-  const [rideOTP, setRideOTP] = useState<string | null>(null);
+  const [rideOTP, setRideOTP] = useState<string | null>(otp || null);
   const [hasArrived, setHasArrived] = useState(false);
   const watchId = useRef<number | null>(null);
 
