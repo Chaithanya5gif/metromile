@@ -12,7 +12,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
-import {getDriverByUser, driverCompleteRide, updateDriverLocation} from '../../services/api';
+import {getDriverByUser, driverCompleteRide, updateDriverLocation, markDriverArrived} from '../../services/api';
 import wsService from '../../services/websocket';
 import Geolocation from '@react-native-community/geolocation';
 import OSMMap from '../../components/OSMMap';
@@ -33,6 +33,8 @@ const ActiveRideScreen: React.FC = () => {
   const [driver, setDriver] = useState<any>(null);
   const [driverLoc, setDriverLoc] = useState({lat: 12.9716, lng: 77.5946});
   const [completing, setCompleting] = useState(false);
+  const [rideOTP, setRideOTP] = useState<string | null>(null);
+  const [hasArrived, setHasArrived] = useState(false);
   const watchId = useRef<number | null>(null);
 
   const loadDriver = useCallback(async () => {
@@ -46,6 +48,18 @@ const ActiveRideScreen: React.FC = () => {
   useEffect(() => {
     loadDriver();
   }, [loadDriver]);
+
+  const handleMarkArrived = async () => {
+    if (!rideId) return;
+    try {
+      const response = await markDriverArrived(rideId);
+      setRideOTP(response.otp);
+      setHasArrived(true);
+      Alert.alert('Arrived!', `Share OTP ${response.otp} with passenger`);
+    } catch (_e) {
+      Alert.alert('Error', 'Could not mark as arrived');
+    }
+  };
 
   // Real GPS tracking — broadcast location to rider via WebSocket
   useEffect(() => {
@@ -173,6 +187,16 @@ const ActiveRideScreen: React.FC = () => {
         <Text style={s.broadcastNote}>
           📡 Broadcasting location every 5s to passenger
         </Text>
+        
+        {/* OTP Display */}
+        {rideOTP && (
+          <View style={s.otpCard}>
+            <Text style={s.otpLabel}>🔐 Pickup OTP</Text>
+            <Text style={s.otpCode}>{rideOTP}</Text>
+            <Text style={s.otpHint}>Share this with passenger</Text>
+          </View>
+        )}
+        
         {driver && (
           <View style={s.statsRow}>
             <View style={s.statBox}>
@@ -189,6 +213,15 @@ const ActiveRideScreen: React.FC = () => {
             </View>
           </View>
         )}
+        
+        {!hasArrived ? (
+          <TouchableOpacity
+            style={s.arrivedBtn}
+            onPress={handleMarkArrived}>
+            <Text style={s.arrivedBtnText}>📍 Mark as Arrived</Text>
+          </TouchableOpacity>
+        ) : null}
+        
         <TouchableOpacity
           style={[s.completeBtn, completing && s.completeBtnDisabled]}
           onPress={handleComplete}
@@ -196,7 +229,7 @@ const ActiveRideScreen: React.FC = () => {
           {completing ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={s.completeBtnText}>✓ Mark as Arrived</Text>
+            <Text style={s.completeBtnText}>✓ Complete Ride</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -240,10 +273,35 @@ const s = StyleSheet.create({
     borderTopRightRadius: 24,
   },
   broadcastNote: {color: '#9CA3AF', fontSize: 13, textAlign: 'center', marginBottom: 16},
+  otpCard: {
+    backgroundColor: '#581C8711',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#581C87',
+  },
+  otpLabel: {color: '#581C87', fontSize: 13, fontWeight: '600', marginBottom: 8},
+  otpCode: {color: '#581C87', fontSize: 32, fontWeight: '900', letterSpacing: 8},
+  otpHint: {color: '#9CA3AF', fontSize: 11, marginTop: 4},
   statsRow: {flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16},
   statBox: {alignItems: 'center'},
   statNum: {color: '#10b981', fontSize: 16, fontWeight: '800'},
   statLbl: {color: '#9CA3AF', fontSize: 11, marginTop: 2},
+  arrivedBtn: {
+    backgroundColor: '#581C87',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#581C87',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  arrivedBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
   completeBtn: {
     backgroundColor: '#10b981',
     borderRadius: 16,

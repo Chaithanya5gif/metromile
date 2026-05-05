@@ -158,6 +158,9 @@ class Ride(Base):
     pickup_lat = Column(Float, nullable=True)           # Metro station coordinates
     pickup_lng = Column(Float, nullable=True)
     is_carpool = Column(Boolean, default=False)         # Shared ride flag
+    ride_otp = Column(String, nullable=True)            # 4-digit OTP for pickup verification
+    otp_verified = Column(Boolean, default=False)       # OTP verification status
+    driver_arrived = Column(Boolean, default=False)     # Driver marked as arrived
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     

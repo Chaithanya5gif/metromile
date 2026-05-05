@@ -6,11 +6,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Share,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useAuth} from '../../context/AuthContext';
 import wsService from '../../services/websocket';
+import {verifyRideOTP, startRide} from '../../services/api';
 import OSMMap from '../../components/OSMMap';
 
 const BENGALURU = {
@@ -30,6 +34,9 @@ const TrackRideScreen: React.FC = () => {
   const [routePath, setRoutePath] = useState<{lat: number; lng: number}[]>([]);
   const [rideStatus, setRideStatus] = useState<string>('pending');
   const [driverInfo, setDriverInfo] = useState<any>(null);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const getVehicleEmoji = () => {
     const type = driverInfo?.vehicle_type?.toLowerCase();
@@ -52,6 +59,10 @@ const TrackRideScreen: React.FC = () => {
     if (data.type === 'ride_accepted') {
       setRideStatus('accepted');
       setDriverInfo(data);
+      // Show OTP modal when driver arrives (simulated after 5 seconds for demo)
+      setTimeout(() => {
+        setShowOTPModal(true);
+      }, 5000);
     }
   }, []);
 
@@ -109,6 +120,25 @@ const TrackRideScreen: React.FC = () => {
         title: 'MetroMile Live Track',
       });
     } catch (error) {}
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!rideId || !otpInput.trim()) {
+      Alert.alert('Error', 'Please enter OTP');
+      return;
+    }
+    setVerifying(true);
+    try {
+      await verifyRideOTP(rideId, otpInput.trim());
+      await startRide(rideId);
+      setShowOTPModal(false);
+      setRideStatus('active');
+      Alert.alert('Success', 'Ride started! 🚀');
+    } catch (_e) {
+      Alert.alert('Invalid OTP', 'Please check the OTP and try again');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
@@ -188,6 +218,46 @@ const TrackRideScreen: React.FC = () => {
           <Text style={s.noRideText}>No active ride. Book one first!</Text>
         )}
       </View>
+
+      {/* OTP Verification Modal */}
+      <Modal
+        visible={showOTPModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOTPModal(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>🔐 Enter Pickup OTP</Text>
+            <Text style={s.modalSubtitle}>
+              Ask the driver for the 4-digit OTP
+            </Text>
+            <TextInput
+              style={s.otpInput}
+              value={otpInput}
+              onChangeText={setOtpInput}
+              placeholder="Enter OTP"
+              keyboardType="number-pad"
+              maxLength={4}
+              autoFocus
+            />
+            <TouchableOpacity
+              style={[s.verifyBtn, verifying && s.verifyBtnDisabled]}
+              onPress={handleVerifyOTP}
+              disabled={verifying}>
+              {verifying ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={s.verifyBtnText}>Verify & Start Ride</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={s.cancelBtn}
+              onPress={() => setShowOTPModal(false)}>
+              <Text style={s.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -272,6 +342,58 @@ const s = StyleSheet.create({
   },
   ratingText: {color: '#f59e0b', fontWeight: '700'},
   noRideText: {color: '#9CA3AF', textAlign: 'center', marginTop: 12},
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    color: '#111827',
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  otpInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 8,
+    width: '100%',
+    marginBottom: 16,
+  },
+  verifyBtn: {
+    backgroundColor: '#581C87',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  verifyBtnDisabled: {opacity: 0.5},
+  verifyBtnText: {color: '#fff', fontSize: 17, fontWeight: '800'},
+  cancelBtn: {
+    padding: 12,
+  },
+  cancelBtnText: {color: '#6B7280', fontSize: 15, fontWeight: '600'},
 });
 
 export default TrackRideScreen;

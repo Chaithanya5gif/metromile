@@ -80,20 +80,29 @@ const DriverRidesScreen: React.FC = () => {
     }
     setAccepting(ride.ride_id);
     try {
-      await acceptRide(driver.id, ride.ride_id);
-      // Notify rider via WS
-      wsService.send({
-        type: 'ride_accepted',
-        rider_id: ride.rider_id,
-        driver_id: driver.id,
-        driver_name: user?.full_name,
-        vehicle_number: driver.vehicle_number,
-        vehicle_type: driver.vehicle_type,
-        rating: driver.rating,
-        ride_id: ride.ride_id,
-      });
-      setPendingRides(prev => prev.filter(r => r.ride_id !== ride.ride_id));
-      navigation.navigate('ActiveRide', {rideId: ride.ride_id, riderId: ride.rider_id});
+      const response = await acceptRide(driver.id, ride.ride_id);
+      // Show OTP to driver
+      const otp = response.otp || '----';
+      Alert.alert(
+        'Ride Accepted! 🎉',
+        `Your pickup OTP is: ${otp}\n\nShare this with the passenger when you arrive.`,
+        [{text: 'Got it', onPress: () => {
+          // Notify rider via WS
+          wsService.send({
+            type: 'ride_accepted',
+            rider_id: ride.rider_id,
+            driver_id: driver.id,
+            driver_name: user?.full_name,
+            vehicle_number: driver.vehicle_number,
+            vehicle_type: driver.vehicle_type,
+            rating: driver.rating,
+            ride_id: ride.ride_id,
+            otp: otp,
+          });
+          setPendingRides(prev => prev.filter(r => r.ride_id !== ride.ride_id));
+          navigation.navigate('ActiveRide', {rideId: ride.ride_id, riderId: ride.rider_id});
+        }}]
+      );
     } catch (_e) {
       Alert.alert('Error', 'Could not accept ride. It may have been taken.');
     } finally {

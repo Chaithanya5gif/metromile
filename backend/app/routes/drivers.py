@@ -112,6 +112,7 @@ def get_driver_rides(user_id: str, db: Session = Depends(get_db)):
     return rides
 
 from app.routes.websocket import manager
+import random
 
 @router.put("/{user_id}/accept/{ride_id}")
 async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db)):
@@ -130,13 +131,19 @@ async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db))
     if ride.status != RideStatus.pending and ride.status != "pending":
         raise HTTPException(status_code=400, detail="Ride no longer available")
     
+    # Generate 4-digit OTP
+    otp = str(random.randint(1000, 9999))
+    
     ride.driver_id = driver.id
     ride.status = RideStatus.accepted
+    ride.ride_otp = otp
+    ride.otp_verified = False
+    ride.driver_arrived = False
     driver.is_busy = True
     driver.is_available = False
     db.commit()
 
-    # Broadcast to rider
+    # Broadcast to rider with OTP info
     await manager.send_to(ride.rider_id, {
         "type": "ride_accepted",
         "ride_id": ride.id,
@@ -144,10 +151,14 @@ async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db))
         "driver_name": driver.user.full_name if driver.user and driver.user.full_name not in ["Metro Driver", "Driver"] else f"Driver {driver.id}",
         "vehicle_number": driver.vehicle_number,
         "vehicle_type": driver.vehicle_type,
-        "rating": driver.rating
+        "rating": driver.rating,
+        "otp": otp
     })
     
-    return {"message": "Ride accepted!"}
+    return {
+        "message": "Ride accepted!",
+        "otp": otp
+    }
 
 @router.put("/{user_id}/complete/{ride_id}")
 async def driver_complete_ride(user_id: str, ride_id: int, db: Session = Depends(get_db)):

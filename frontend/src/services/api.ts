@@ -101,6 +101,16 @@ export const acceptRide = (userId: string, rideId: number) =>
 export const driverCompleteRide = (userId: string, rideId: number) =>
   api.put(`/drivers/${userId}/complete/${rideId}`).then(r => r.data);
 
+// ─── OTP VERIFICATION ─────────────────────────────────────────────────────
+export const markDriverArrived = (rideId: number) =>
+  api.put(`/rides/${rideId}/mark-arrived`).then(r => r.data);
+
+export const verifyRideOTP = (rideId: number, otp: string) =>
+  api.post(`/rides/${rideId}/verify-otp`, {otp}).then(r => r.data);
+
+export const startRide = (rideId: number) =>
+  api.put(`/rides/${rideId}/start`).then(r => r.data);
+
 // ─── PAYMENTS ─────────────────────────────────────────────────────────────
 export const calculateFare = (rideId: number) =>
   api.get(`/payments/calculate/${rideId}`).then(r => r.data);

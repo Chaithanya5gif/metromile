@@ -286,3 +286,87 @@ def complete_ride(ride_id: int, db: Session = Depends(get_db)):
     ride.completed_at = datetime.utcnow()
     db.commit()
     return {"message": "Ride completed"}
+
+# ============================================
+# OTP VERIFICATION ENDPOINTS (NEW)
+# ============================================
+
+class OTPVerify(BaseModel):
+    """Schema for OTP verification"""
+    otp: str
+
+@router.put("/{ride_id}/mark-arrived")
+def mark_driver_arrived(ride_id: int, db: Session = Depends(get_db)):
+    """
+    Driver marks as arrived at pickup location
+    This triggers OTP verification flow for rider
+    """
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if ride.status != RideStatus.accepted:
+        raise HTTPException(status_code=400, detail="Ride must be in accepted status")
+    
+    ride.driver_arrived = True
+    db.commit()
+    
+    return {
+        "message": "Marked as arrived",
+        "ride_id": ride.id,
+        "otp": ride.ride_otp
+    }
+
+@router.post("/{ride_id}/verify-otp")
+def verify_ride_otp(ride_id: int, data: OTPVerify, db: Session = Depends(get_db)):
+    """
+    Verify OTP entered by rider
+    Called when rider enters OTP shown by driver
+    """
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if not ride.ride_otp:
+        raise HTTPException(status_code=400, detail="No OTP generated for this ride")
+    
+    if ride.otp_verified:
+        return {"message": "OTP already verified", "verified": True}
+    
+    # Verify OTP
+    if data.otp.strip() != ride.ride_otp.strip():
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    ride.otp_verified = True
+    db.commit()
+    
+    return {
+        "message": "OTP verified successfully",
+        "verified": True,
+        "ride_id": ride.id
+    }
+
+@router.put("/{ride_id}/start")
+def start_ride(ride_id: int, db: Session = Depends(get_db)):
+    """
+    Start the ride after OTP verification
+    Changes status from 'accepted' to 'active'
+    """
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if ride.status != RideStatus.accepted:
+        raise HTTPException(status_code=400, detail="Ride must be in accepted status")
+    
+    if not ride.otp_verified:
+        raise HTTPException(status_code=400, detail="OTP must be verified before starting ride")
+    
+    ride.status = RideStatus.active
+    db.commit()
+    
+    return {
+        "message": "Ride started",
+        "ride_id": ride.id,
+        "status": ride.status
+    }
