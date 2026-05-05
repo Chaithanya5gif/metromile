@@ -131,13 +131,17 @@ async def accept_ride(user_id: str, ride_id: int, db: Session = Depends(get_db))
     if ride.status != RideStatus.pending and ride.status != "pending":
         raise HTTPException(status_code=400, detail="Ride no longer available")
     
-    # Generate 4-digit OTP
-    otp = str(random.randint(1000, 9999))
+    # Generate 4-digit OTP only for multi-passenger vehicles
+    # Bikes/Scooters (1 passenger) don't need OTP
+    vehicle_type = driver.vehicle_type.lower() if driver.vehicle_type else ""
+    needs_otp = vehicle_type not in ["bike", "scooter", "scooty"]
+    
+    otp = str(random.randint(1000, 9999)) if needs_otp else None
     
     ride.driver_id = driver.id
-    ride.status = RideStatus.accepted
+    ride.status = RideStatus.accepted if needs_otp else RideStatus.active
     ride.ride_otp = otp
-    ride.otp_verified = False
+    ride.otp_verified = not needs_otp  # Auto-verify for bikes
     ride.driver_arrived = False
     driver.is_busy = True
     driver.is_available = False

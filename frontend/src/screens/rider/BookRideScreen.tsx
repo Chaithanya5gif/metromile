@@ -68,17 +68,33 @@ const BookRideScreen: React.FC = () => {
   };
 
   const getDynamicDrivers = (type: string, baseFare: number) => {
-    const vehicles = {
-      auto: ['Bajaj RE CNG', 'Piaggio Ape City', 'Mahindra Treo'],
-      mini: ['Tata Tiago CNG', 'Maruti Celerio', 'Hyundai i10'],
-      priority: ['Toyota Innova', 'Honda City', 'Kia Seltos'],
-      bike: ['Ather 450X ⚡', 'Ola S1 Pro ⚡', 'TVS iQube ⚡'],
+    const vehicleData = {
+      auto: {
+        vehicles: ['Bajaj RE CNG', 'Piaggio Ape City', 'Mahindra Treo'],
+        capacity: 3,
+        icon: '🛺'
+      },
+      mini: {
+        vehicles: ['Tata Tiago CNG', 'Maruti Celerio', 'Hyundai i10'],
+        capacity: 4,
+        icon: '🚗'
+      },
+      priority: {
+        vehicles: ['Toyota Innova', 'Honda City', 'Kia Seltos'],
+        capacity: 6,
+        icon: '✨'
+      },
+      bike: {
+        vehicles: ['Ather 450X ⚡', 'Ola S1 Pro ⚡', 'TVS iQube ⚡'],
+        capacity: 1,
+        icon: '🛵'
+      },
     };
-    const vList = vehicles[type as keyof typeof vehicles] || vehicles.auto;
+    const vData = vehicleData[type as keyof typeof vehicleData] || vehicleData.auto;
     return [
-      {id: 101, name: 'Elena Rodriguez', rating: 4.9, vehicle: vList[0], away: '0.4 km away', time: '2 min', fare: baseFare},
-      {id: 102, name: 'Marcus Chen', rating: 5.0, vehicle: vList[1], away: '1.2 km away', time: '5 min', fare: baseFare},
-      {id: 103, name: 'Vikram Singh', rating: 4.7, vehicle: vList[2], away: '1.8 km away', time: '8 min', fare: baseFare},
+      {id: 101, name: 'Elena Rodriguez', rating: 4.9, vehicle: vData.vehicles[0], capacity: vData.capacity, icon: vData.icon, away: '0.4 km away', time: '2 min', fare: baseFare},
+      {id: 102, name: 'Marcus Chen', rating: 5.0, vehicle: vData.vehicles[1], capacity: vData.capacity, icon: vData.icon, away: '1.2 km away', time: '5 min', fare: baseFare},
+      {id: 103, name: 'Vikram Singh', rating: 4.7, vehicle: vData.vehicles[2], capacity: vData.capacity, icon: vData.icon, away: '1.8 km away', time: '8 min', fare: baseFare},
     ];
   };
 
@@ -428,10 +444,11 @@ const BookRideScreen: React.FC = () => {
               {nearbyDrivers.map(d => (
                 <TouchableOpacity key={d.id} style={s.driverCard} onPress={() => setStep('confirm')}>
                   <View style={s.driverRow}>
-                    <View style={s.driverAvatar}><Text style={{fontSize: 24}}>👤</Text></View>
+                    <View style={s.driverAvatar}><Text style={{fontSize: 24}}>{d.icon || '👤'}</Text></View>
                     <View style={s.driverInfo}>
                       <Text style={s.driverName}>{d.name}</Text>
-                      <Text style={s.driverVehicle}>⭐ {d.rating} • {d.vehicle}</Text>
+                      <Text style={s.driverVehicle}>⭐ {d.rating} • {d.vehicle} {d.icon}</Text>
+                      <Text style={s.driverCapacity}>👥 {d.capacity} {d.capacity === 1 ? 'passenger' : 'passengers'}</Text>
                     </View>
                     <Text style={s.driverFare}>₹{d.fare}</Text>
                   </View>
@@ -839,6 +856,7 @@ const s = StyleSheet.create({
   driverInfo: {flex: 1},
   driverName: {fontSize: 17, fontWeight: '800', color: '#111827'},
   driverVehicle: {fontSize: 13, color: '#6B7280', marginTop: 2},
+  driverCapacity: {fontSize: 12, color: '#10B981', marginTop: 4, fontWeight: '600'},
   driverFare: {fontSize: 22, fontWeight: '800', color: '#4C1D95'},
   driverDetailsRow: {flexDirection: 'row', gap: 10},
   detailBadge: {backgroundColor: '#F3E8FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20},

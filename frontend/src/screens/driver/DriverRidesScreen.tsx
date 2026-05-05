@@ -81,16 +81,30 @@ const DriverRidesScreen: React.FC = () => {
     setAccepting(ride.ride_id);
     try {
       const response = await acceptRide(driver.id, ride.ride_id);
-      // Show OTP to driver
-      const otp = response.otp || '----';
-      Alert.alert(
-        'Ride Accepted! 🎉',
-        `Your pickup OTP is: ${otp}\n\nShare this with the passenger when you arrive.`,
-        [{text: 'Got it', onPress: () => {
-          setPendingRides(prev => prev.filter(r => r.ride_id !== ride.ride_id));
-          navigation.navigate('ActiveRide', {rideId: ride.ride_id, riderId: ride.rider_id, otp: otp});
-        }}]
-      );
+      const otp = response.otp;
+      const needsOtp = response.needs_otp;
+      
+      if (needsOtp && otp) {
+        // Multi-passenger vehicle - show OTP
+        Alert.alert(
+          'Ride Accepted! 🎉',
+          `Your pickup OTP is: ${otp}\n\nShare this with the passenger when you arrive.`,
+          [{text: 'Got it', onPress: () => {
+            setPendingRides(prev => prev.filter(r => r.ride_id !== ride.ride_id));
+            navigation.navigate('ActiveRide', {rideId: ride.ride_id, riderId: ride.rider_id, otp: otp});
+          }}]
+        );
+      } else {
+        // Bike/Scooter - no OTP needed, ride starts immediately
+        Alert.alert(
+          'Ride Accepted! 🎉',
+          'Navigate to pickup location. Ride will start automatically.',
+          [{text: 'Start Navigation', onPress: () => {
+            setPendingRides(prev => prev.filter(r => r.ride_id !== ride.ride_id));
+            navigation.navigate('ActiveRide', {rideId: ride.ride_id, riderId: ride.rider_id, otp: null});
+          }}]
+        );
+      }
     } catch (_e) {
       Alert.alert('Error', 'Could not accept ride. It may have been taken.');
     } finally {

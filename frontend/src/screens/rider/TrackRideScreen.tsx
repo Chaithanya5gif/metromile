@@ -57,12 +57,19 @@ const TrackRideScreen: React.FC = () => {
 
   const handleRideAccepted = useCallback((data: any) => {
     if (data.type === 'ride_accepted') {
-      setRideStatus('accepted');
+      setRideStatus(data.status || 'accepted');
       setDriverInfo(data);
-      // Show OTP modal when driver arrives (simulated after 5 seconds for demo)
-      setTimeout(() => {
-        setShowOTPModal(true);
-      }, 5000);
+      
+      // Only show OTP modal for multi-passenger vehicles
+      if (data.needs_otp && data.otp) {
+        // Show OTP modal when driver arrives (simulated after 5 seconds for demo)
+        setTimeout(() => {
+          setShowOTPModal(true);
+        }, 5000);
+      } else {
+        // Bike/Scooter - ride starts immediately, no OTP needed
+        setRideStatus('active');
+      }
     }
   }, []);
 
