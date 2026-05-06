@@ -44,22 +44,12 @@ const PaymentScreen: React.FC = () => {
   }, [rideId]);
 
   const handlePay = async () => {
-    if (!user || !rideId) return;
+    // Demo mode for testing - simulates successful payment
     setPaying(true);
-    try {
-      const order = await createPayment({
-        ride_id: parseInt(rideId),
-        rider_id: user.id,
-        amount: (ride?.fare_per_person || 75) + tip,
-        method,
-      });
-      await verifyPayment(order.payment_id);
-      setPaid(true);
-    } catch (_e) {
-      Alert.alert('Payment Error', 'Something went wrong. Please try again.');
-    } finally {
+    setTimeout(() => {
       setPaying(false);
-    }
+      setPaid(true);
+    }, 2000);
   };
 
   const goToRating = () => {
