@@ -114,6 +114,19 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
 
+        {/* TEMP TEST BUTTONS - delete after testing */}
+        <TouchableOpacity
+          style={{backgroundColor: '#581C87', margin: 16, padding: 16, borderRadius: 12}}
+          onPress={() => navigation.navigate('Payment', {rideId: '1'})}>
+          <Text style={{color: '#fff', textAlign: 'center', fontWeight: '700'}}>🧪 Test Payment</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{backgroundColor: '#f59e0b', margin: 16, padding: 16, borderRadius: 12, marginTop: 0}}
+          onPress={() => navigation.navigate('Rating', {rideId: '1', driverId: '1'})}>
+          <Text style={{color: '#fff', textAlign: 'center', fontWeight: '700'}}>🧪 Test Rating</Text>
+        </TouchableOpacity>
+        {/* END TEMP TEST BUTTONS */}
+
         {/* Book Ride CTA */}
         <TouchableOpacity
           style={s.ctaCard}
