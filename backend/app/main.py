@@ -1,25 +1,3 @@
-"""
-MetroMile Backend API
-=====================
-FastAPI-based REST API for the MetroMile carpooling application.
-
-Features:
-- User authentication and role management (Rider/Driver)
-- Real-time ride matching and booking with carpool support
-- WebSocket-based live GPS tracking
-- Payment processing with Razorpay integration
-- Driver rating and review system
-
-Tech Stack:
-- FastAPI (async Python web framework)
-- PostgreSQL (relational database via SQLAlchemy ORM)
-- WebSocket (real-time bidirectional communication)
-- Pydantic (request/response validation)
-
-Author: MetroMile Team
-Version: 2.0.0
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
