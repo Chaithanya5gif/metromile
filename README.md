@@ -11,7 +11,7 @@
 ╚═╝     ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝╚══════╝╚══════╝
 ```
 
-**Smart Metro Carpooling — Match smarter. Commute cheaper. Travel greener.**
+**Smart Metro Carpooling  Match smarter. Commute cheaper. Travel greener.**
 
 <br/>
 
@@ -29,7 +29,7 @@
 
 ## What is MetroMile?
 
-**MetroMile** is a real-time carpooling platform built around metro stations. It intelligently groups commuters travelling similar routes, splits fares automatically, and coordinates pickup and drop-off — all from a mobile app.
+**MetroMile** is a real-time carpooling platform built around metro stations. It intelligently groups commuters travelling similar routes, splits fares automatically, and coordinates pickup and drop-off  all from a mobile app.
 
 The core problem it solves: metro stations are hubs, but the last-mile and shared-route legs of urban commutes are fragmented, expensive, and inefficient. MetroMile bridges that gap.
 
@@ -46,10 +46,10 @@ The core problem it solves: metro stations are hubs, but the last-mile and share
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
+- [Environment Variables](#environmentvariables)
 - [API Reference](#api-reference)
 - [System Flows](#system-flows)
-- [Matching Algorithm](#matching-algorithm)
+- [Matching Algorithm](#matchingalgorithm)
 - [Authentication](#authentication)
 - [Contributing](#contributing)
 - [License](#license)
@@ -65,11 +65,11 @@ The core problem it solves: metro stations are hubs, but the last-mile and share
 | **Tracking** | GPS location updates every 5 seconds during active trips |
 | **OTP Verification** | 4-digit OTP for secure pickup (auto/car/suv) — bikes skip OTP for speed |
 | **Smart Capacity** | 🛵 Bike (1) • 🛺 Auto (3) • 🚗 Mini (4) • ✨ Premium (6) passengers |
-| **Payments** | Razorpay integration with auto-processing on trip completion |
+| **Payments** | Razorpay integration with auto processing on trip completion |
 | **Auth** | Google OAuth, GitHub OAuth, and Email OTP via Clerk |
 | **Driver Verification** | License, RC, Aadhar verification system for safety |
-| **Driver tools** | Availability toggle, 2-minute accept/decline window, per-trip earnings summary |
-| **Ratings** | Post-trip passenger-to-driver rating system |
+| **Driver tools** | Availability toggle, 2 minute accept/decline window, per-trip earnings summary |
+| **Ratings** | Post trip passenger to driver rating system |
 
 ---
 
@@ -104,7 +104,7 @@ The core problem it solves: metro stations are hubs, but the last-mile and share
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Mobile** | React Native / Expo (TypeScript) | Cross-platform iOS & Android app |
+| **Mobile** | React Native / Expo (TypeScript) | Cross platform iOS & Android app |
 | **Backend** | Python + FastAPI | REST API + WebSocket server |
 | **Auth** | Clerk | OAuth, Email OTP, JWT session management |
 | **Database** | Neon (PostgreSQL) | Persistent storage with serverless scaling |
@@ -156,13 +156,7 @@ metromile/
 
 ### Prerequisites
 
-| Tool | Minimum version |
-|---|---|
-| Node.js | 18.x |
-| Python | 3.10 |
-| Expo CLI | latest |
-| Clerk account | — |
-| Neon account | — |
+
 
 ### 1. Clone the repository
 
