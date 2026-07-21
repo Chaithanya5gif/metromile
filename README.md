@@ -33,10 +33,6 @@
 
 The core problem it solves: metro stations are hubs, but the last-mile and shared-route legs of urban commutes are fragmented, expensive, and inefficient. MetroMile bridges that gap.
 
-- **For passengers** — find a shared ride in under 60 seconds, pay automatically, track your driver live.
-- **For drivers** — receive pooled trip requests in your area, accept in one tap, earn per completed trip.
-- **For cities** — fewer cars, lower emissions, smarter use of existing road capacity.
-
 ---
 
 ## Table of Contents
